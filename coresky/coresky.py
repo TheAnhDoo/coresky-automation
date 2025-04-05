@@ -282,7 +282,6 @@ def vote_for_meme_project(driver, project_name=None, vote_points=None):
         time.sleep(config.WAIT_MEDIUM)  # Longer wait to ensure the input is processed
 
         # Step 6: Click the "Vote" button to submit the vote
-        driver.find_element(By.CSS_SELECTOR, ".el-button.el-button--primary .el-button--large .is-disabled").click()
         driver.find_element(By.XPATH,"/html[1]/body[1]/div[7]/div[1]/div[1]/div[1]/div[1]/button[1]").click()
         # NEW APPROACH: Create an iframe and use it to bypass UI restrictions
         logger.info("Trying completely new approach with iframe and direct form submission")

@@ -21,7 +21,7 @@ METAMASK_PASSWORD = "123123123"
 # Coresky settings
 CORESKY_URL = "https://www.coresky.com/tasks-rewards"
 CORESKY_TASKS_URL = "https://www.coresky.com/tasks-rewards"
-MEME_PROJECT_NAME = "CupidAI"
+MEME_PROJECT_NAME = "kmoii"
 MEME_VOTE_POINTS = "20"
 
 # Wait times in seconds

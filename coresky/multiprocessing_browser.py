@@ -73,9 +73,9 @@ def initialize_browser(process_id):
         # Set up Chrome options
         chrome_options = webdriver.ChromeOptions()
         
-        # Add the specific ChromeOptions settings requested
-        chrome_options.addArguments("--no-sandbox")
-        chrome_options.addArguments("--headless")
+        # Add the specific ChromeOptions settings requested (corrected method name)
+        chrome_options.add_argument("--no-sandbox")
+        chrome_options.add_argument("--headless")
         
         # Set small window size to reduce memory usage
         chrome_options.add_argument("--window-size=600,300")

@@ -279,16 +279,20 @@ def vote_for_meme_project(driver, project_name=None, vote_points=None):
         """)
 
         logger.info("JavaScript executed for input field")
-        time.sleep(config.WAIT_SHORT)  # Short wait between input and clicking the button
+        time.sleep(config.WAIT_MEDIUM)  # Short wait between input and clicking the button
 
         # Step 6: Click the "Vote" button in the popup to confirm (original implementation)
         logger.info("Confirming the vote")
         confirm_vote_xpath = "/html/body/div[7]/div/div/div/div/button"
+        confirm_vote_xpath2= driver.find_element(By.CSS_SELECTOR, "button.el-button--primary.el-button--large.is-disabled[aria-disabled='true']")
+        confirm_vote_xpath2.click()
+        safe_click(driver,confirm_vote_xpath2)
         confirm_button = driver.find_element(By.XPATH, confirm_vote_xpath)
         time.sleep(config.WAIT_SHORT)
         safe_click(driver, confirm_button)
         driver.execute_script("arguments[0].click();", confirm_button)
-        time.sleep(config.WAIT_SHORT)
+        button = driver.find_element(By.CSS_SELECTOR, "button.el-button--primary.el-button--large.is-disabled[aria-disabled='true']")
+
         
         # Step 7: Check for success notification
         logger.info("Checking for vote success")

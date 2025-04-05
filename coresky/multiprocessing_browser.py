@@ -45,17 +45,10 @@ def initialize_browser(process_id):
     """
     logger.info(f"[Process {process_id}] Initializing Chrome browser")
     
-    # Create a unique temporary user data directory
-    import tempfile
-    import shutil
-    user_data_dir = tempfile.mkdtemp(prefix=f"chrome_profile_{process_id}_")
-    logger.info(f"[Process {process_id}] Created temporary user data directory: {user_data_dir}")
-    
     try:
         # Check if extensions exist
         if not os.path.exists(config.METAMASK_CRX_PATH):
             logger.error(f"MetaMask extension file not found: {config.METAMASK_CRX_PATH}")
-            shutil.rmtree(user_data_dir, ignore_errors=True)  # Clean up
             return None
             
         # Set up Chrome options
@@ -74,8 +67,27 @@ def initialize_browser(process_id):
         chrome_options.add_argument("--no-sandbox")
         chrome_options.add_argument("--headless=new")  # Use new headless mode
         
-        # Use the temporary user data directory
-        chrome_options.add_argument(f"--user-data-dir={user_data_dir}")
+        # Do NOT use user data directory at all
+        chrome_options.add_argument("--incognito")
+        
+        # Use a random temporary directory that isn't a user data directory
+        import random
+        import string
+        random_id = ''.join(random.choices(string.ascii_lowercase + string.digits, k=10))
+        chrome_options.add_argument(f"--remote-debugging-port={random.randint(9222, 9999)}")
+        
+        # Disable disk cache and cookies storage
+        chrome_options.add_argument("--disable-application-cache")
+        chrome_options.add_argument("--disk-cache-size=1")
+        chrome_options.add_argument("--media-cache-size=1")
+        chrome_options.add_argument("--disk-cache-dir=/dev/null")
+        chrome_options.add_argument("--aggressive-cache-discard")
+        
+ 
+        
+        # Add unique runtime path
+        chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
+        chrome_options.add_experimental_option("useAutomationExtension", False)
         
         # Add MetaMask extension
         chrome_options.add_extension(config.METAMASK_CRX_PATH)
@@ -83,7 +95,6 @@ def initialize_browser(process_id):
         # Set up Chrome service
         if not os.path.exists(config.CHROMEDRIVER_PATH):
             logger.error(f"ChromeDriver not found: {config.CHROMEDRIVER_PATH}")
-            shutil.rmtree(user_data_dir, ignore_errors=True)  # Clean up
             return None
             
         service = Service(executable_path=config.CHROMEDRIVER_PATH)
@@ -93,9 +104,6 @@ def initialize_browser(process_id):
         
         # Set implicit wait time
         driver.implicitly_wait(config.DEFAULT_IMPLICIT_WAIT)
-        
-        # Store the user data directory with the driver so we can clean it up later
-        driver.user_data_dir = user_data_dir
         
         # Close any extra tabs that might have opened with extensions
         if len(driver.window_handles) > 1:
@@ -110,8 +118,6 @@ def initialize_browser(process_id):
         return driver
     except Exception as e:
         logger.error(f"[Process {process_id}] Error initializing browser: {e}")
-        # Clean up the user data directory on error
-        shutil.rmtree(user_data_dir, ignore_errors=True)
         return None
 
 def run_browser_instance(process_id):
@@ -139,7 +145,7 @@ def run_browser_instance(process_id):
             metamask_setup_success = metamask.setup_metamask_wallet(driver)
             if not metamask_setup_success:
                 logger.error(f"[Process {process_id}] Failed to set up MetaMask wallet, restarting browser")
-                cleanup_browser(driver)
+                driver.quit()
                 driver = None
                 time.sleep(10)
                 continue
@@ -149,7 +155,7 @@ def run_browser_instance(process_id):
             connect_success = metamask.connect_metamask_to_coresky(driver, config.CORESKY_URL)
             if not connect_success:
                 logger.error(f"[Process {process_id}] Failed to connect MetaMask to Coresky, restarting browser")
-                cleanup_browser(driver)
+                driver.quit()
                 driver = None
                 time.sleep(10)
                 continue
@@ -164,7 +170,7 @@ def run_browser_instance(process_id):
             
             # Clean up and restart a new cycle
             logger.info(f"[Process {process_id}] Cycle completed, restarting browser for a new cycle")
-            cleanup_browser(driver)
+            driver.quit()
             driver = None
             time.sleep(10)  # Brief pause before starting a new cycle
             
@@ -172,7 +178,7 @@ def run_browser_instance(process_id):
             logger.error(f"[Process {process_id}] Error during automation cycle: {e}")
             if driver:
                 try:
-                    cleanup_browser(driver)
+                    driver.quit()
                 except:
                     pass
                 driver = None
@@ -185,7 +191,7 @@ def run_browser_instance(process_id):
     # Clean up
     if driver:
         try:
-            cleanup_browser(driver)
+            driver.quit()
         except:
             pass
     logger.info(f"[Process {process_id}] Process stopped")

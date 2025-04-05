@@ -45,15 +45,18 @@ def initialize_browser(process_id):
     """
     logger.info(f"[Process {process_id}] Initializing Chrome browser")
     
+    # Create a unique temporary user data directory
+    import tempfile
+    import shutil
+    user_data_dir = tempfile.mkdtemp(prefix=f"chrome_profile_{process_id}_")
+    logger.info(f"[Process {process_id}] Created temporary user data directory: {user_data_dir}")
+    
     try:
         # Check if extensions exist
         if not os.path.exists(config.METAMASK_CRX_PATH):
             logger.error(f"MetaMask extension file not found: {config.METAMASK_CRX_PATH}")
+            shutil.rmtree(user_data_dir, ignore_errors=True)  # Clean up
             return None
-            
-        # Create a temporary directory for this process
-        temp_dir = os.path.join(config.BROWSER_TOOLS_DIR, f"temp_chrome_{process_id}_{int(time.time())}")
-        os.makedirs(temp_dir, exist_ok=True)
             
         # Set up Chrome options
         chrome_options = Options()
@@ -71,8 +74,8 @@ def initialize_browser(process_id):
         chrome_options.add_argument("--no-sandbox")
         chrome_options.add_argument("--headless=new")  # Use new headless mode
         
-        # Set temporary user data directory
-        chrome_options.add_argument(f"--user-data-dir={temp_dir}")
+        # Use the temporary user data directory
+        chrome_options.add_argument(f"--user-data-dir={user_data_dir}")
         
         # Add MetaMask extension
         chrome_options.add_extension(config.METAMASK_CRX_PATH)
@@ -80,6 +83,7 @@ def initialize_browser(process_id):
         # Set up Chrome service
         if not os.path.exists(config.CHROMEDRIVER_PATH):
             logger.error(f"ChromeDriver not found: {config.CHROMEDRIVER_PATH}")
+            shutil.rmtree(user_data_dir, ignore_errors=True)  # Clean up
             return None
             
         service = Service(executable_path=config.CHROMEDRIVER_PATH)
@@ -89,6 +93,9 @@ def initialize_browser(process_id):
         
         # Set implicit wait time
         driver.implicitly_wait(config.DEFAULT_IMPLICIT_WAIT)
+        
+        # Store the user data directory with the driver so we can clean it up later
+        driver.user_data_dir = user_data_dir
         
         # Close any extra tabs that might have opened with extensions
         if len(driver.window_handles) > 1:
@@ -103,13 +110,8 @@ def initialize_browser(process_id):
         return driver
     except Exception as e:
         logger.error(f"[Process {process_id}] Error initializing browser: {e}")
-        # Clean up temporary directory if it exists
-        try:
-            if os.path.exists(temp_dir):
-                import shutil
-                shutil.rmtree(temp_dir)
-        except Exception as cleanup_error:
-            logger.error(f"[Process {process_id}] Error cleaning up temporary directory: {cleanup_error}")
+        # Clean up the user data directory on error
+        shutil.rmtree(user_data_dir, ignore_errors=True)
         return None
 
 def run_browser_instance(process_id):
@@ -137,7 +139,7 @@ def run_browser_instance(process_id):
             metamask_setup_success = metamask.setup_metamask_wallet(driver)
             if not metamask_setup_success:
                 logger.error(f"[Process {process_id}] Failed to set up MetaMask wallet, restarting browser")
-                driver.quit()
+                cleanup_browser(driver)
                 driver = None
                 time.sleep(10)
                 continue
@@ -147,7 +149,7 @@ def run_browser_instance(process_id):
             connect_success = metamask.connect_metamask_to_coresky(driver, config.CORESKY_URL)
             if not connect_success:
                 logger.error(f"[Process {process_id}] Failed to connect MetaMask to Coresky, restarting browser")
-                driver.quit()
+                cleanup_browser(driver)
                 driver = None
                 time.sleep(10)
                 continue
@@ -162,7 +164,7 @@ def run_browser_instance(process_id):
             
             # Clean up and restart a new cycle
             logger.info(f"[Process {process_id}] Cycle completed, restarting browser for a new cycle")
-            driver.quit()
+            cleanup_browser(driver)
             driver = None
             time.sleep(10)  # Brief pause before starting a new cycle
             
@@ -170,7 +172,7 @@ def run_browser_instance(process_id):
             logger.error(f"[Process {process_id}] Error during automation cycle: {e}")
             if driver:
                 try:
-                    driver.quit()
+                    cleanup_browser(driver)
                 except:
                     pass
                 driver = None
@@ -183,10 +185,35 @@ def run_browser_instance(process_id):
     # Clean up
     if driver:
         try:
-            driver.quit()
+            cleanup_browser(driver)
         except:
             pass
     logger.info(f"[Process {process_id}] Process stopped")
+
+def cleanup_browser(driver):
+    """
+    Clean up browser and its user data directory
+    """
+    import shutil
+    
+    if hasattr(driver, 'user_data_dir'):
+        user_data_dir = driver.user_data_dir
+        try:
+            driver.quit()
+        except Exception as e:
+            logger.error(f"Error quitting driver: {e}")
+        
+        # Remove the temporary user data directory
+        try:
+            logger.info(f"Cleaning up user data directory: {user_data_dir}")
+            shutil.rmtree(user_data_dir, ignore_errors=True)
+        except Exception as e:
+            logger.error(f"Error cleaning up user data directory: {e}")
+    else:
+        try:
+            driver.quit()
+        except:
+            pass
 
 def estimate_max_instances():
     """

@@ -423,7 +423,7 @@ def vote_for_meme_project(driver, project_name=None, vote_points=None):
         if not vote_button_found:
             try:
                 logger.info("Approach 4: Using XPath to find and click vote button")
-                xpath_btn = driver.find_element(By.XPATH, "/html/body/div[7]/div/div/div/div/button")
+                xpath_btn = driver.find_element(By.XPATH, "/html/body/div[7]/div/div/div/div/button[1]")
                 safe_click(driver, xpath_btn)
                 logger.info("Successfully clicked Vote button using XPath")
                 vote_button_found = True

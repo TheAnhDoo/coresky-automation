@@ -341,7 +341,7 @@ def vote_for_meme_project(driver, project_name=None, vote_points=None):
         if not vote_button_found:
             try:
                 logger.info("Approach 2: Clicking by CSS selector targeting primary button")
-                vote_btn = driver.find_element(By.CSS_SELECTOR, "#el-id-404-61 > div > button)
+                vote_btn = driver.find_element(By.CSS_SELECTOR, '#el-id-404-61 > div > button')
                 driver.execute_script("arguments[0].click();", vote_btn)
                 logger.info("Successfully clicked Vote button using CSS selector")
                 vote_button_found = True

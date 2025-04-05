@@ -340,13 +340,65 @@ def vote_for_meme_project(driver, project_name=None, vote_points=None):
         # Approach 2: Try by CSS selector targeting the button from the screenshot
         if not vote_button_found:
             try:
-                logger.info("Approach 2: Clicking by CSS selector targeting primary button")
-                vote_btn = driver.find_element(By.CSS_SELECTOR, '#el-id-404-61 > div > button')
+                logger.info("Approach 2: Clicking by CSS selector targeting primary button with specific ID")
+                # Try the specific selector provided by user
+                vote_btn = driver.find_element(By.CSS_SELECTOR, '#el-id-2617-97 > div > button')
                 driver.execute_script("arguments[0].click();", vote_btn)
-                logger.info("Successfully clicked Vote button using CSS selector")
+                logger.info("Successfully clicked Vote button using specific CSS selector")
                 vote_button_found = True
             except Exception as e:
-                logger.warning(f"Approach 2 failed: {e}")
+                logger.warning(f"Approach 2a failed with specific selector: {e}")
+                try:
+                    # Fallback to a more general selector that might work if ID changes
+                    logger.info("Trying alternate selector pattern")
+                    vote_btn = driver.find_element(By.CSS_SELECTOR, '[id^="el-id-"] > div > button')
+                    driver.execute_script("arguments[0].click();", vote_btn)
+                    logger.info("Successfully clicked Vote button using pattern CSS selector")
+                    vote_button_found = True
+                except Exception as e2:
+                    logger.warning(f"Approach 2b failed with pattern selector: {e2}")
+                    
+        # Add direct JavaScript querySelector approach right after approach 2
+        if not vote_button_found:
+            try:
+                logger.info("Approach 2c: Direct querySelector with the specific selector")
+                clicked = driver.execute_script("""
+                    var button = document.querySelector("#el-id-2617-97 > div > button");
+                    if (button) {
+                        console.log("Found button with querySelector:", button);
+                        button.click();
+                        return true;
+                    }
+                    return false;
+                """)
+                if clicked:
+                    logger.info("Successfully clicked Vote button using querySelector")
+                    vote_button_found = True
+                else:
+                    # Try with a dynamic ID pattern match
+                    clicked = driver.execute_script("""
+                        // Find all elements with ID starting with el-id-
+                        var potentialContainers = document.querySelectorAll('[id^="el-id-"]');
+                        console.log("Found " + potentialContainers.length + " potential containers");
+                        
+                        for (var i = 0; i < potentialContainers.length; i++) {
+                            var button = potentialContainers[i].querySelector('div > button');
+                            if (button && (
+                                button.textContent.trim().toLowerCase() === 'vote' || 
+                                button.textContent.trim().toLowerCase().includes('vote')
+                            )) {
+                                console.log("Found vote button in container:", button);
+                                button.click();
+                                return true;
+                            }
+                        }
+                        return false;
+                    """)
+                    if clicked:
+                        logger.info("Successfully clicked Vote button using dynamic ID pattern matching")
+                        vote_button_found = True
+            except Exception as e:
+                logger.warning(f"Approach 2c failed with direct querySelector: {e}")
         
         # Approach 3: Try the disabled button specifically
         if not vote_button_found:

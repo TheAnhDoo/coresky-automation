@@ -81,7 +81,7 @@ def initialize_browser(process_id):
         chrome_options.add_argument("--window-size=600,300")
         
         # Use the temporary user data directory - add early in options list
-        chrome_options.add_argument(f"--user-data-dir={user_data_dir}")
+        # chrome_options.add_argument(f"--user-data-dir={user_data_dir}")
         
         # Disable all browser features that might cause profile lock issues
         chrome_options.add_argument("--disable-background-networking")

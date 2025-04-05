@@ -472,7 +472,7 @@ def connect_metamask_to_coresky(driver, coresky_url):
                 }
             }
         """)
-        time.sleep(config.WAIT_SHORT)
+        time.sleep(config.WAIT_MEDIUM)
 
         # Handle the signing request (if a new popup appears for signing)
         logger.info("Looking for MetaMask signing popup")
@@ -485,13 +485,14 @@ def connect_metamask_to_coresky(driver, coresky_url):
                         var buttons = document.querySelectorAll('button');
                         for (var i = 0; i < buttons.length; i++) {
                             var text = buttons[i].innerText.toLowerCase();
-                            if (text.includes('sign') || text.includes('confirm')) {
+                            if (text.includes('Confirm') || text.includes('confirm')) {
                                 buttons[i].click();
                                 break;
                             }
                         }
                     """)
                     time.sleep(config.WAIT_SHORT)
+                    time.sleep(5)
                     break
 
         # Switch back to the main Coresky window

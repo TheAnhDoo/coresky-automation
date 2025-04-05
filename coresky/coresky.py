@@ -281,214 +281,97 @@ def vote_for_meme_project(driver, project_name=None, vote_points=None):
         logger.info("JavaScript executed for input field")
         time.sleep(config.WAIT_MEDIUM)  # Longer wait to ensure the input is processed
 
-        # Step 6: Aggressively try everything to click the vote button
-        logger.info("Trying multiple approaches to click the Vote button")
+        # Step 6: Try only the two specific selectors provided by the user
+        logger.info("Attempting to click Vote button with specific selectors")
         
-        # First, try to enable any disabled buttons via JavaScript
+        # First enable any disabled buttons via JavaScript
         driver.execute_script("""
             // Remove disabled attributes and classes from all buttons
-            var buttons = document.querySelectorAll('button, [role="button"]');
+            var buttons = document.querySelectorAll('button.el-button--primary.el-button--large');
             for (var i = 0; i < buttons.length; i++) {
-                var button = buttons[i];
-                
-                // If it's the vote button or contains vote text
-                if (button.textContent.trim().toLowerCase() === 'vote' || 
-                    button.textContent.trim().toLowerCase().includes('vote')) {
-                    
-                    // Remove disabled attribute
-                    button.removeAttribute('disabled');
-                    button.removeAttribute('aria-disabled');
-                    
-                    // Remove disabled classes
-                    button.classList.remove('is-disabled');
-                    button.classList.remove('disabled');
-                    
-                    // Force enable pointer events
-                    button.style.pointerEvents = 'auto';
-                    button.style.opacity = '1';
-                    
-                    console.log("Enabled vote button:", button);
-                }
+                // Remove disabled attribute and classes
+                buttons[i].removeAttribute('disabled');
+                buttons[i].removeAttribute('aria-disabled');
+                buttons[i].classList.remove('is-disabled');
+                buttons[i].classList.remove('disabled');
+                buttons[i].style.pointerEvents = 'auto';
+                buttons[i].style.opacity = '1';
             }
         """)
         
         # Wait a moment for the DOM to update
         time.sleep(config.WAIT_SHORT)
         
-        # Try multiple button locating strategies one by one, with error handling for each
+        # Try the first selector - CSS selector for primary button
         vote_button_found = False
-        
-        # Approach 1: Try by text content using JavaScript (most reliable)
         try:
-            logger.info("Approach 1: Clicking by textContent using JavaScript")
-            clicked = driver.execute_script("""
-                var buttons = document.querySelectorAll('button');
-                for (var i = 0; i < buttons.length; i++) {
-                    if (buttons[i].textContent.trim().toLowerCase() === 'vote') {
-                        buttons[i].click();
-                        return true;
-                    }
-                }
-                return false;
-            """)
-            if clicked:
-                logger.info("Successfully clicked Vote button using textContent JavaScript")
-                vote_button_found = True
+            logger.info("Trying primary button CSS selector")
+            vote_btn = driver.find_element(By.CSS_SELECTOR, 'button.el-button.el-button--primary.el-button--large')
+            driver.execute_script("arguments[0].click();", vote_btn)
+            logger.info("Successfully clicked Vote button using primary button CSS selector")
+            vote_button_found = True
         except Exception as e:
-            logger.warning(f"Approach 1 failed: {e}")
-        
-        # Approach 2: Try by CSS selector targeting the button from the screenshot
-        if not vote_button_found:
+            logger.warning(f"First selector failed: {e}")
+            
+            # Try direct JavaScript click with this selector
             try:
-                logger.info("Approach 2: Clicking by CSS selector targeting primary button with specific ID")
-                # Try the specific selector provided by user
-                vote_btn = driver.find_element(By.CSS_SELECTOR, '#el-id-2617-97 > div > button')
-                driver.execute_script("arguments[0].click();", vote_btn)
-                logger.info("Successfully clicked Vote button using specific CSS selector")
-                vote_button_found = True
-            except Exception as e:
-                logger.warning(f"Approach 2a failed with specific selector: {e}")
-                try:
-                    # Fallback to a more general selector that might work if ID changes
-                    logger.info("Trying alternate selector pattern")
-                    vote_btn = driver.find_element(By.CSS_SELECTOR, '[id^="el-id-"] > div > button')
-                    driver.execute_script("arguments[0].click();", vote_btn)
-                    logger.info("Successfully clicked Vote button using pattern CSS selector")
-                    vote_button_found = True
-                except Exception as e2:
-                    logger.warning(f"Approach 2b failed with pattern selector: {e2}")
-                    
-        # Add direct JavaScript querySelector approach right after approach 2
-        if not vote_button_found:
-            try:
-                logger.info("Approach 2c: Direct querySelector with the specific selector")
+                logger.info("Trying JavaScript click with primary button selector")
                 clicked = driver.execute_script("""
-                    var button = document.querySelector("#el-id-2617-97 > div > button");
+                    var button = document.querySelector('button.el-button.el-button--primary.el-button--large');
                     if (button) {
-                        console.log("Found button with querySelector:", button);
                         button.click();
                         return true;
                     }
                     return false;
                 """)
                 if clicked:
-                    logger.info("Successfully clicked Vote button using querySelector")
+                    logger.info("Successfully clicked primary button using JavaScript querySelector")
                     vote_button_found = True
-                else:
-                    # Try with a dynamic ID pattern match
+            except Exception as js_e:
+                logger.warning(f"JavaScript click with first selector failed: {js_e}")
+        
+        # If first selector failed, try the second selector (XPath with ID)
+        if not vote_button_found:
+            try:
+                logger.info("Trying XPath with ID selector")
+                # Convert the given format to standard XPath
+                xpath_with_id = "//div[@id='el-id-4196-64']/div[1]/button[1]"
+                xpath_btn = driver.find_element(By.XPATH, xpath_with_id)
+                driver.execute_script("arguments[0].click();", xpath_btn)
+                logger.info("Successfully clicked Vote button using XPath with ID")
+                vote_button_found = True
+            except Exception as e:
+                logger.warning(f"Second selector failed: {e}")
+                
+                # Try direct JavaScript click with XPath evaluation
+                try:
+                    logger.info("Trying JavaScript click with XPath evaluation")
                     clicked = driver.execute_script("""
-                        // Find all elements with ID starting with el-id-
-                        var potentialContainers = document.querySelectorAll('[id^="el-id-"]');
-                        console.log("Found " + potentialContainers.length + " potential containers");
+                        var button = document.evaluate(
+                            "//div[@id='el-id-4196-64']/div[1]/button[1]",
+                            document,
+                            null,
+                            XPathResult.FIRST_ORDERED_NODE_TYPE,
+                            null
+                        ).singleNodeValue;
                         
-                        for (var i = 0; i < potentialContainers.length; i++) {
-                            var button = potentialContainers[i].querySelector('div > button');
-                            if (button && (
-                                button.textContent.trim().toLowerCase() === 'vote' || 
-                                button.textContent.trim().toLowerCase().includes('vote')
-                            )) {
-                                console.log("Found vote button in container:", button);
-                                button.click();
-                                return true;
-                            }
+                        if (button) {
+                            button.click();
+                            return true;
                         }
                         return false;
                     """)
                     if clicked:
-                        logger.info("Successfully clicked Vote button using dynamic ID pattern matching")
+                        logger.info("Successfully clicked button using JavaScript XPath evaluation")
                         vote_button_found = True
-            except Exception as e:
-                logger.warning(f"Approach 2c failed with direct querySelector: {e}")
+                except Exception as js_e:
+                    logger.warning(f"JavaScript click with second selector failed: {js_e}")
         
-        # Approach 3: Try the disabled button specifically
+        # If both specific selectors failed, log a warning
         if not vote_button_found:
-            try:
-                logger.info("Approach 3: Targeting disabled button and forcing click")
-                disabled_btn = driver.find_element(By.CSS_SELECTOR, "button.el-button--primary.el-button--large.is-disabled[aria-disabled='true']")
-                # Enable the button first
-                driver.execute_script("""
-                    arguments[0].classList.remove('is-disabled');
-                    arguments[0].removeAttribute('disabled');
-                    arguments[0].removeAttribute('aria-disabled');
-                """, disabled_btn)
-                time.sleep(0.5)
-                # Then click it
-                driver.execute_script("arguments[0].click();", disabled_btn)
-                logger.info("Successfully clicked disabled Vote button")
-                vote_button_found = True
-            except Exception as e:
-                logger.warning(f"Approach 3 failed: {e}")
+            logger.warning("Both specific selectors failed. Vote may not be completed.")
         
-        # Approach 4: Try XPath approach
-        if not vote_button_found:
-            try:
-                logger.info("Approach 4: Using XPath to find and click vote button")
-                xpath_btn = driver.find_element(By.XPATH, "/html/body/div[7]/div/div/div/div/button[1]")
-                safe_click(driver, xpath_btn)
-                logger.info("Successfully clicked Vote button using XPath")
-                vote_button_found = True
-            except Exception as e:
-                logger.warning(f"Approach 4 failed: {e}")
-        
-        # Approach 5: Try to find button by span content
-        if not vote_button_found:
-            try:
-                logger.info("Approach 5: Finding button by span text content")
-                span_btn = driver.find_element(By.XPATH, "//button/span[text()='Vote']/parent::button")
-                driver.execute_script("arguments[0].click();", span_btn)
-                logger.info("Successfully clicked Vote button via span content")
-                vote_button_found = True
-            except Exception as e:
-                logger.warning(f"Approach 5 failed: {e}")
-        
-        # Approach 6: Last resort - use advanced JavaScript to force a UI action
-        if not vote_button_found:
-            logger.info("Approach 6: Using advanced JavaScript DOM manipulation")
-            driver.execute_script("""
-                // Find the popup dialog
-                var dialog = document.evaluate(
-                    "/html/body/div[7]/div/div/div/div", 
-                    document, 
-                    null, 
-                    XPathResult.FIRST_ORDERED_NODE_TYPE, 
-                    null
-                ).singleNodeValue;
-                
-                if (dialog) {
-                    console.log("Found dialog:", dialog);
-                    
-                    // Final approach - create and dispatch a custom event or click
-                    var allButtons = dialog.querySelectorAll('button');
-                    console.log("Found " + allButtons.length + " buttons in dialog");
-                    
-                    for (var i = 0; i < allButtons.length; i++) {
-                        console.log("Button " + i + " text: " + allButtons[i].textContent.trim());
-                        
-                        // If it looks like a vote button
-                        if (allButtons[i].textContent.trim().toLowerCase().includes('vote')) {
-                            console.log("Attempting to click vote button");
-                            
-                            // Create a proper MouseEvent
-                            var clickEvent = new MouseEvent('click', {
-                                view: window,
-                                bubbles: true,
-                                cancelable: true
-                            });
-                            
-                            // Dispatch it
-                            allButtons[i].dispatchEvent(clickEvent);
-                            console.log("Force clicked vote button with MouseEvent");
-                            
-                            return true;
-                        }
-                    }
-                }
-                
-                return false;
-            """)
-            logger.info("Executed advanced JavaScript DOM manipulation")
-        
-        time.sleep(config.WAIT_MEDIUM) # Wait after all click attempts
+        time.sleep(config.WAIT_MEDIUM)  # Wait after click attempts
         
         # Step 7: Check for success notification
         logger.info("Checking for vote success")

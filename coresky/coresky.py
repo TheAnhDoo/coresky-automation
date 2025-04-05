@@ -203,15 +203,67 @@ def vote_for_meme_project(driver, project_name=None, vote_points=None):
         driver.execute_script("arguments[0].click();", vote_button)
         time.sleep(config.WAIT_SHORT)  # Wait for the popup to appear
 
-        # Step 5: Input 20 points in the popup
-        logger.info(f"Entering vote points: {vote_points}")
-        # time.sleep(300)
-        points_input_xpath = "/html/body/div[7]/div/div/div/div/div[2]/div/div/input"
-        points_input = driver.find_element(By.XPATH, points_input_xpath)
-        points_input.clear()
-        points_input.send_keys(vote_points)
-        # time.sleep(config.WAIT_SHORT)
-        
+        # Step 5: Input points in the popup - try multiple possible XPaths
+        logger.info(f"Attempting to enter vote points: {vote_points}")
+
+        # List of possible XPaths for the points input
+        points_input_xpaths = [
+            "/html/body/div[7]/div/div/div/div/div[2]/div/div",
+            "/html/body/div[7]/div/div/div/div/div[2]",
+            "/html/body/div[7]/div/div/div/div/div[2]/div",
+            "/html/body/div[7]/div/div/div/div/div[2]/div/div/input"
+        ]
+
+        input_success = False
+        for xpath in points_input_xpaths:
+            try:
+                logger.info(f"Trying XPath: {xpath}")
+                points_input = driver.find_element(By.XPATH, xpath)
+                
+                # Try different methods to interact with the element
+                try:
+                    points_input.clear()
+                    points_input.send_keys(vote_points)
+                    input_success = True
+                    logger.info(f"Successfully entered points using XPath: {xpath}")
+                    break
+                except:
+                    # Try using JavaScript to set the value
+                    try:
+                        driver.execute_script("arguments[0].value = arguments[1];", points_input, vote_points)
+                        input_success = True
+                        logger.info(f"Successfully entered points using JavaScript with XPath: {xpath}")
+                        break
+                    except:
+                        logger.warning(f"Failed to enter text with XPath: {xpath}")
+            except Exception as e:
+                logger.warning(f"Error trying XPath {xpath}: {e}")
+
+        # Fallback: use JavaScript to find and fill any input in the popup
+        if not input_success:
+            logger.info("Trying JavaScript fallback method")
+            input_success = driver.execute_script("""
+                var inputs = document.querySelectorAll('.vote-input, input[type="number"], input[type="text"]');
+                for (var i = 0; i < inputs.length; i++) {
+                    try {
+                        inputs[i].value = '';
+                        inputs[i].value = arguments[0];
+                        inputs[i].dispatchEvent(new Event('input', { bubbles: true }));
+                        inputs[i].dispatchEvent(new Event('change', { bubbles: true }));
+                        console.log("Set value using JS:", inputs[i]);
+                        return true;
+                    } catch(e) {
+                        console.error("Error setting input:", e);
+                    }
+                }
+                return false;
+            """, vote_points)
+            
+            if input_success:
+                logger.info("Successfully entered points using JavaScript fallback")
+
+        if not input_success:
+            logger.warning("Failed to enter points using all methods. Continuing anyway...")
 
         # Step 6: Click the "Vote" button in the popup to confirm
         logger.info("Confirming the vote")

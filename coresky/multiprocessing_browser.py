@@ -102,7 +102,7 @@ def initialize_browser(process_id):
         chrome_options.add_argument("--disable-sync")
         chrome_options.add_argument("--disable-web-security")
         chrome_options.add_argument("--force-color-profile=srgb")
-        chrome_options.add_argument("--headless=new")
+        # chrome_options.add_argument("--headless=new")
         chrome_options.add_argument("--metrics-recording-only")
         chrome_options.add_argument("--mute-audio")
         chrome_options.add_argument("--no-first-run")

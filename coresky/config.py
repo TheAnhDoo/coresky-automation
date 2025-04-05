@@ -12,8 +12,8 @@ os.makedirs(SCREENSHOTS_DIR, exist_ok=True)
 # Browser paths
 METAMASK_CRX_PATH = os.path.join(CURRENT_DIR, "MetaMask.crx")
 SELECTORSHUB_CRX_PATH = os.path.join(CURRENT_DIR, "SelectorsHub.crx")
-CHROMEDRIVER_PATH = "/usr/bin/chromedriver"  # Using system-installed ChromeDriver
-
+# CHROMEDRIVER_PATH = "/usr/bin/chromedriver"  # Using system-installed ChromeDriver
+CHROMEDRIVER_PATH = os.path.join(BROWSER_TOOLS_DIR, "chromedriver")
 # MetaMask settings
 METAMASK_EXTENSION_ID = "nkbihfbeogaeaoehlefnkodbefgpgknn"
 METAMASK_PASSWORD = "123123123"

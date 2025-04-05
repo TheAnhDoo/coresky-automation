@@ -58,19 +58,15 @@ def initialize_browser(process_id):
         chrome_options.add_argument("--window-size=600,300")
         chrome_options.add_argument("--disable-notifications")
         
-        # Add options to reduce memory usage
+        # Add options to reduce memory usage and improve compatibility
         chrome_options.add_argument("--disable-gpu")
         chrome_options.add_argument("--disable-dev-shm-usage")
         chrome_options.add_argument("--disable-browser-side-navigation")
         chrome_options.add_argument("--disable-infobars")
         chrome_options.add_argument("--mute-audio")
         chrome_options.add_argument("--no-sandbox")
-        chrome_options.add_argument("--headless")  # Run in headless mode
-        
-        # Create a unique user data directory for this process
-        user_data_dir = os.path.join(config.BROWSER_TOOLS_DIR, f"chrome_profile_{process_id}")
-        os.makedirs(user_data_dir, exist_ok=True)
-        chrome_options.add_argument(f"--user-data-dir={user_data_dir}")
+        # chrome_options.add_argument("--headless=new")  # Use new headless mode
+
         
         # Add MetaMask extension
         chrome_options.add_extension(config.METAMASK_CRX_PATH)

@@ -203,67 +203,148 @@ def vote_for_meme_project(driver, project_name=None, vote_points=None):
         driver.execute_script("arguments[0].click();", vote_button)
         time.sleep(config.WAIT_SHORT)  # Wait for the popup to appear
 
-        # Step 5: Input points in the popup - try multiple possible XPaths
+        # Step 5: Input points in the popup - focus on the specific xpath you provided
         logger.info(f"Attempting to enter vote points: {vote_points}")
+        specific_xpath = "/html/body/div[7]/div/div/div/div/div[2]/div/div"
 
-        # List of possible XPaths for the points input
-        points_input_xpaths = [
-            "/html/body/div[7]/div/div/div/div/div[2]/div/div",
-            "/html/body/div[7]/div/div/div/div/div[2]",
-            "/html/body/div[7]/div/div/div/div/div[2]/div",
-            "/html/body/div[7]/div/div/div/div/div[2]/div/div/input"
-        ]
-
-        input_success = False
-        for xpath in points_input_xpaths:
-            try:
-                logger.info(f"Trying XPath: {xpath}")
-                points_input = driver.find_element(By.XPATH, xpath)
-                
-                # Try different methods to interact with the element
-                try:
-                    points_input.clear()
-                    points_input.send_keys(vote_points)
-                    input_success = True
-                    logger.info(f"Successfully entered points using XPath: {xpath}")
-                    break
-                except:
-                    # Try using JavaScript to set the value
-                    try:
-                        driver.execute_script("arguments[0].value = arguments[1];", points_input, vote_points)
-                        input_success = True
-                        logger.info(f"Successfully entered points using JavaScript with XPath: {xpath}")
-                        break
-                    except:
-                        logger.warning(f"Failed to enter text with XPath: {xpath}")
-            except Exception as e:
-                logger.warning(f"Error trying XPath {xpath}: {e}")
-
-        # Fallback: use JavaScript to find and fill any input in the popup
-        if not input_success:
-            logger.info("Trying JavaScript fallback method")
-            input_success = driver.execute_script("""
-                var inputs = document.querySelectorAll('.vote-input, input[type="number"], input[type="text"]');
-                for (var i = 0; i < inputs.length; i++) {
-                    try {
-                        inputs[i].value = '';
-                        inputs[i].value = arguments[0];
-                        inputs[i].dispatchEvent(new Event('input', { bubbles: true }));
-                        inputs[i].dispatchEvent(new Event('change', { bubbles: true }));
-                        console.log("Set value using JS:", inputs[i]);
-                        return true;
-                    } catch(e) {
-                        console.error("Error setting input:", e);
-                    }
-                }
-                return false;
-            """, vote_points)
+        try:
+            # First try: Direct approach with focused xpath
+            logger.info(f"Direct attempt on xpath: {specific_xpath}")
+            # Wait a bit longer for the element to be fully available
+            time.sleep(3)
             
-            if input_success:
-                logger.info("Successfully entered points using JavaScript fallback")
+            # Try multiple approaches for the same element
+            
+            # Approach 1: Standard Selenium find and send keys
+            try:
+                input_element = driver.find_element(By.XPATH, specific_xpath)
+                driver.execute_script("arguments[0].scrollIntoView(true);", input_element)
+                input_element.click()
+                input_element.clear()
+                input_element.send_keys(vote_points)
+                logger.info("Successfully used direct Selenium method")
+                
+            # Approach 2: Use JavaScript to set value
+            except Exception as e1:
+                logger.warning(f"First approach failed: {e1}")
+                try:
+                    logger.info("Trying JavaScript approach")
+                    driver.execute_script("""
+                        var element = document.evaluate(
+                            "/html/body/div[7]/div/div/div/div/div[2]/div/div", 
+                            document, 
+                            null, 
+                            XPathResult.FIRST_ORDERED_NODE_TYPE, 
+                            null
+                        ).singleNodeValue;
+                        
+                        if(element) {
+                            element.click();
+                            element.value = "20";
+                            
+                            // Create and dispatch events
+                            var inputEvent = new Event('input', { bubbles: true });
+                            element.dispatchEvent(inputEvent);
+                            
+                            var changeEvent = new Event('change', { bubbles: true });
+                            element.dispatchEvent(changeEvent);
+                            
+                            console.log("Set value to 20 using JavaScript");
+                            return true;
+                        }
+                        return false;
+                    """)
+                    logger.info("Successfully used JavaScript method")
+                
+                # Approach 3: Try fill_input utility
+                except Exception as e2:
+                    logger.warning(f"Second approach failed: {e2}")
+                    try:
+                        logger.info("Trying fill_input utility")
+                        result = fill_input(driver, specific_xpath, vote_points, By.XPATH, 10, "vote points input")
+                        if result:
+                            logger.info("Successfully used fill_input utility")
+                        else:
+                            raise Exception("fill_input returned False")
+                    
+                    # Approach 4: Manual key simulation with ActionChains
+                    except Exception as e3:
+                        logger.warning(f"Third approach failed: {e3}")
+                        logger.info("Trying ActionChains approach")
+                        from selenium.webdriver.common.action_chains import ActionChains
+                        
+                        # First find the element
+                        try:
+                            input_element = driver.find_element(By.XPATH, specific_xpath)
+                            # Scroll to it
+                            driver.execute_script("arguments[0].scrollIntoView(true);", input_element)
+                            
+                            # Set up action chains
+                            actions = ActionChains(driver)
+                            actions.move_to_element(input_element)
+                            actions.click()
+                            actions.send_keys("20")
+                            actions.perform()
+                            
+                            logger.info("Successfully used ActionChains method")
+                        except Exception as e4:
+                            logger.warning(f"All direct approaches failed: {e4}")
+                            # Last attempt: JavaScript direct DOM manipulation
+                            logger.info("Using brute force JavaScript approach")
+                            driver.execute_script("""
+                                // Try to find any input in the vote popup
+                                var popup = document.querySelector(".vote-popup, .dialog, .modal, div[role='dialog']");
+                                if (!popup) {
+                                    // If no popup class, try to get the container at the XPath
+                                    popup = document.evaluate(
+                                        "/html/body/div[7]/div/div/div/div", 
+                                        document, 
+                                        null, 
+                                        XPathResult.FIRST_ORDERED_NODE_TYPE, 
+                                        null
+                                    ).singleNodeValue;
+                                }
+                                
+                                if (popup) {
+                                    // Look for any input in the popup
+                                    var inputs = popup.querySelectorAll("input, [contenteditable='true']");
+                                    if (inputs.length > 0) {
+                                        inputs[0].value = "20";
+                                        inputs[0].dispatchEvent(new Event('input', { bubbles: true }));
+                                        inputs[0].dispatchEvent(new Event('change', { bubbles: true }));
+                                        console.log("Set value to 20 using global search");
+                                        return true;
+                                    }
+                                    
+                                    // If no input found, try to set text on the div directly
+                                    var divs = popup.querySelectorAll("div");
+                                    for (var i = 0; i < divs.length; i++) {
+                                        if (divs[i].textContent.trim() === "" || 
+                                            /^[0-9]+$/.test(divs[i].textContent.trim())) {
+                                            divs[i].textContent = "20";
+                                            divs[i].dispatchEvent(new Event('input', { bubbles: true }));
+                                            console.log("Set text content to 20");
+                                            return true;
+                                        }
+                                    }
+                                }
+                                return false;
+                            """)
+                            logger.info("Attempted JavaScript brute force approach")
 
-        if not input_success:
-            logger.warning("Failed to enter points using all methods. Continuing anyway...")
+        except Exception as main_error:
+            logger.error(f"All approaches to enter vote points failed: {main_error}")
+            logger.warning("Continuing with the vote process anyway")
+
+        # Take a screenshot to debug the issue
+        try:
+            logger.info("Taking screenshot of the vote screen")
+            from utils import take_screenshot
+            take_screenshot(driver, "vote_points_screen")
+        except:
+            pass
+
+        time.sleep(2)  # Give time for any asynchronous operations to complete
 
         # Step 6: Click the "Vote" button in the popup to confirm
         logger.info("Confirming the vote")

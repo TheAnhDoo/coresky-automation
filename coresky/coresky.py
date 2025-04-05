@@ -281,97 +281,236 @@ def vote_for_meme_project(driver, project_name=None, vote_points=None):
         logger.info("JavaScript executed for input field")
         time.sleep(config.WAIT_MEDIUM)  # Longer wait to ensure the input is processed
 
-        # Step 6: Try only the two specific selectors provided by the user
-        logger.info("Attempting to click Vote button with specific selectors")
+        # Step 6: Try advanced interaction techniques since basic selectors aren't working
+        logger.info("Using advanced interaction techniques for the Vote button")
         
-        # First enable any disabled buttons via JavaScript
-        driver.execute_script("""
-            // Remove disabled attributes and classes from all buttons
-            var buttons = document.querySelectorAll('button.el-button--primary.el-button--large');
-            for (var i = 0; i < buttons.length; i++) {
-                // Remove disabled attribute and classes
-                buttons[i].removeAttribute('disabled');
-                buttons[i].removeAttribute('aria-disabled');
-                buttons[i].classList.remove('is-disabled');
-                buttons[i].classList.remove('disabled');
-                buttons[i].style.pointerEvents = 'auto';
-                buttons[i].style.opacity = '1';
-            }
-        """)
+        # First try to get the button with multiple approaches and store all found elements
+        potential_buttons = []
         
-        # Wait a moment for the DOM to update
-        time.sleep(config.WAIT_SHORT)
-        
-        # Try the first selector - CSS selector for primary button
-        vote_button_found = False
         try:
-            logger.info("Trying primary button CSS selector")
-            vote_btn = driver.find_element(By.CSS_SELECTOR, 'button.el-button.el-button--primary.el-button--large')
-            driver.execute_script("arguments[0].click();", vote_btn)
-            logger.info("Successfully clicked Vote button using primary button CSS selector")
-            vote_button_found = True
-        except Exception as e:
-            logger.warning(f"First selector failed: {e}")
+            # Wait for the button to be clickable (may help with timing issues)
+            from selenium.webdriver.support.ui import WebDriverWait
+            from selenium.webdriver.support import expected_conditions as EC
             
-            # Try direct JavaScript click with this selector
-            try:
-                logger.info("Trying JavaScript click with primary button selector")
-                clicked = driver.execute_script("""
-                    var button = document.querySelector('button.el-button.el-button--primary.el-button--large');
-                    if (button) {
-                        button.click();
-                        return true;
-                    }
-                    return false;
-                """)
-                if clicked:
-                    logger.info("Successfully clicked primary button using JavaScript querySelector")
-                    vote_button_found = True
-            except Exception as js_e:
-                logger.warning(f"JavaScript click with first selector failed: {js_e}")
+            logger.info("Waiting for button to be clickable...")
+            wait = WebDriverWait(driver, 10)
+            btn = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, 'button.el-button.el-button--primary.el-button--large')))
+            potential_buttons.append(btn)
+            logger.info("Found button with WebDriverWait")
+        except Exception as e:
+            logger.warning(f"WebDriverWait approach failed: {e}")
         
-        # If first selector failed, try the second selector (XPath with ID)
-        if not vote_button_found:
-            try:
-                logger.info("Trying XPath with ID selector")
-                # Convert the given format to standard XPath
-                xpath_with_id = "//div[@id='el-id-4196-64']/div[1]/button[1]"
-                xpath_btn = driver.find_element(By.XPATH, xpath_with_id)
-                driver.execute_script("arguments[0].click();", xpath_btn)
-                logger.info("Successfully clicked Vote button using XPath with ID")
-                vote_button_found = True
-            except Exception as e:
-                logger.warning(f"Second selector failed: {e}")
+        # Try different selectors to gather potential buttons
+        try:
+            # By dialog container and then finding the button
+            dialog = driver.find_element(By.CSS_SELECTOR, '.el-dialog__wrapper')
+            buttons = dialog.find_elements(By.TAG_NAME, 'button')
+            potential_buttons.extend(buttons)
+            logger.info(f"Found {len(buttons)} buttons in dialog")
+        except Exception as e:
+            logger.warning(f"Dialog container approach failed: {e}")
+        
+        try:
+            # By vote text
+            vote_buttons = driver.find_elements(By.XPATH, "//button[contains(., 'Vote')]")
+            potential_buttons.extend(vote_buttons)
+            logger.info(f"Found {len(vote_buttons)} buttons with 'Vote' text")
+        except Exception as e:
+            logger.warning(f"Vote text search failed: {e}")
+            
+        # Try interacting with each potential button using multiple methods
+        vote_button_clicked = False
+        
+        for i, button in enumerate(potential_buttons):
+            if vote_button_clicked:
+                break
                 
-                # Try direct JavaScript click with XPath evaluation
+            logger.info(f"Trying advanced interactions with button {i+1}/{len(potential_buttons)}")
+            
+            try:
+                # Method 1: ActionChains for precise click
+                from selenium.webdriver.common.action_chains import ActionChains
+                
+                logger.info("Trying ActionChains approach")
+                actions = ActionChains(driver)
+                actions.move_to_element(button)
+                actions.pause(1)  # Pause for a second
+                actions.click()
+                actions.perform()
+                
+                logger.info("ActionChains click executed")
+                vote_button_clicked = True
+                time.sleep(2)
+                continue
+            except Exception as e:
+                logger.warning(f"ActionChains approach failed: {e}")
+            
+            try:
+                # Method 2: Send Enter key to the button
+                logger.info("Trying Send Keys approach")
+                button.send_keys(Keys.RETURN)
+                logger.info("Send Keys executed")
+                vote_button_clicked = True
+                time.sleep(2)
+                continue
+            except Exception as e:
+                logger.warning(f"Send Keys approach failed: {e}")
+            
+            try:
+                # Method 3: Try with safe_click helper
+                logger.info("Trying safe_click approach")
+                from utils import safe_click
+                safe_click_result = safe_click(driver, button, max_attempts=5)
+                if safe_click_result:
+                    logger.info("safe_click successful")
+                    vote_button_clicked = True
+                    time.sleep(2)
+                    continue
+            except Exception as e:
+                logger.warning(f"safe_click approach failed: {e}")
+                
+            try:
+                # Method 4: Coordinate-based click
+                logger.info("Trying coordinate-based click")
+                
+                # Get button location and size
+                location = button.location
+                size = button.size
+                
+                # Calculate center point
+                x_center = location['x'] + size['width'] // 2
+                y_center = location['y'] + size['height'] // 2
+                
+                # Perform click at coordinates
+                actions = ActionChains(driver)
+                actions.move_by_offset(x_center, y_center)
+                actions.click()
+                actions.perform()
+                
+                logger.info(f"Clicked at coordinates: {x_center}, {y_center}")
+                vote_button_clicked = True
+                time.sleep(2)
+                continue
+            except Exception as e:
+                logger.warning(f"Coordinate-based click failed: {e}")
+                
+        # If none of the buttons worked with standard approaches, try brute force methods
+        if not vote_button_clicked:
+            logger.info("Standard approaches failed, trying brute force methods")
+            
+            try:
+                # Method 5: Tab navigation to find and click the button
+                logger.info("Trying tab navigation")
+                active_element = driver.switch_to.active_element
+                
+                # Press tab up to 10 times to try to reach the button
+                for _ in range(10):
+                    active_element.send_keys(Keys.TAB)
+                    time.sleep(0.5)
+                    
+                    # Check if we've reached a button element
+                    active = driver.switch_to.active_element
+                    tag_name = active.tag_name
+                    
+                    if tag_name.lower() == 'button':
+                        logger.info("Found button via tab navigation")
+                        active.send_keys(Keys.RETURN)
+                        vote_button_clicked = True
+                        break
+                
+                time.sleep(2)
+            except Exception as e:
+                logger.warning(f"Tab navigation failed: {e}")
+                
+            if not vote_button_clicked:
                 try:
-                    logger.info("Trying JavaScript click with XPath evaluation")
-                    clicked = driver.execute_script("""
-                        var button = document.evaluate(
-                            "//div[@id='el-id-4196-64']/div[1]/button[1]",
-                            document,
-                            null,
-                            XPathResult.FIRST_ORDERED_NODE_TYPE,
-                            null
-                        ).singleNodeValue;
-                        
-                        if (button) {
-                            button.click();
+                    # Method 6: Inject a custom button and click it
+                    logger.info("Injecting a custom button as last resort")
+                    driver.execute_script("""
+                        // Find the dialog
+                        var dialogs = document.querySelectorAll('.el-dialog__wrapper, [role="dialog"]');
+                        if (dialogs.length > 0) {
+                            var dialog = dialogs[0];
+                            
+                            // Find the button container/footer
+                            var footer = dialog.querySelector('.el-dialog__footer, .dialog-footer');
+                            if (!footer) {
+                                // If no footer, use the dialog itself
+                                footer = dialog;
+                            }
+                            
+                            // First, try to click any existing vote button directly with a MouseEvent
+                            var existingButtons = footer.querySelectorAll('button');
+                            for (var i = 0; i < existingButtons.length; i++) {
+                                if (existingButtons[i].textContent.toLowerCase().includes('vote')) {
+                                    console.log("Found vote button, sending MouseEvent");
+                                    
+                                    // Create and dispatch mousedown, mouseup and click events
+                                    ['mousedown', 'mouseup', 'click'].forEach(function(eventType) {
+                                        var clickEvent = new MouseEvent(eventType, {
+                                            view: window,
+                                            bubbles: true,
+                                            cancelable: true,
+                                            buttons: 1
+                                        });
+                                        existingButtons[i].dispatchEvent(clickEvent);
+                                    });
+                                    
+                                    return true;
+                                }
+                            }
+                            
+                            // If clicking existing buttons didn't work, create a custom button
+                            var customButton = document.createElement('button');
+                            customButton.textContent = 'Vote';
+                            customButton.style.cssText = 'background-color: #3880ff; color: white; padding: 10px 20px; border-radius: 4px; border: none; cursor: pointer; font-size: 16px; margin: 10px;';
+                            
+                            // Add click handler that will trigger the original button
+                            customButton.addEventListener('click', function() {
+                                console.log("Custom button clicked");
+                                
+                                // Try to click all buttons in the dialog again
+                                var allButtons = dialog.querySelectorAll('button');
+                                for (var i = 0; i < allButtons.length; i++) {
+                                    if (allButtons[i].textContent.toLowerCase().includes('vote') && 
+                                        allButtons[i] !== customButton) {
+                                        console.log("Clicking original button from custom button handler");
+                                        allButtons[i].click();
+                                    }
+                                }
+                                
+                                // Attempt to close the dialog
+                                var closeButton = dialog.querySelector('.el-dialog__close, .close-btn');
+                                if (closeButton) {
+                                    closeButton.click();
+                                }
+                                
+                                return true;
+                            });
+                            
+                            // Add the button to the footer
+                            footer.appendChild(customButton);
+                            console.log("Custom vote button added");
+                            
+                            // Click the custom button
+                            setTimeout(function() {
+                                customButton.click();
+                                console.log("Custom button clicked");
+                            }, 500);
+                            
                             return true;
                         }
+                        
                         return false;
                     """)
-                    if clicked:
-                        logger.info("Successfully clicked button using JavaScript XPath evaluation")
-                        vote_button_found = True
-                except Exception as js_e:
-                    logger.warning(f"JavaScript click with second selector failed: {js_e}")
+                    
+                    logger.info("Custom button injection executed")
+                    time.sleep(3)  # Give it time to work
+                except Exception as e:
+                    logger.warning(f"Custom button injection failed: {e}")
         
-        # If both specific selectors failed, log a warning
-        if not vote_button_found:
-            logger.warning("Both specific selectors failed. Vote may not be completed.")
-        
-        time.sleep(config.WAIT_MEDIUM)  # Wait after click attempts
+        # Final wait before proceeding to next step
+        time.sleep(config.WAIT_MEDIUM)
         
         # Step 7: Check for success notification
         logger.info("Checking for vote success")

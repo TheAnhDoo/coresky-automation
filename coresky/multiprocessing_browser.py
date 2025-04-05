@@ -63,8 +63,7 @@ def initialize_browser(process_id):
         chrome_options = Options()
         
         # Add the specific ChromeOptions settings for Docker environment
-        chrome_options.add_argument("--no-sandbox")
-        chrome_options.add_argument("--headless")
+
         
         # Set small window size to reduce memory usage
         chrome_options.add_argument("--window-size=600,300")
@@ -72,34 +71,14 @@ def initialize_browser(process_id):
         # Docker-specific options to prevent user-data-dir issues
         chrome_options.add_argument("--disable-dev-shm-usage")
         chrome_options.add_argument("--disable-gpu")
+        chrome_options.add_argument("--no-sandbox")
+        chrome_options.add_argument("--headless")
         # Use tmp directory for data path instead of default user-data-dir
         temp_data_path = f"/tmp/chrome_data_{process_id}_{unique_id}"
         chrome_options.add_argument(f"--data-path={temp_data_path}")
         
         # Disable all browser features that might cause profile lock issues
-        chrome_options.add_argument("--disable-background-networking")
-        chrome_options.add_argument("--disable-background-timer-throttling")
-        chrome_options.add_argument("--disable-backgrounding-occluded-windows")
-        chrome_options.add_argument("--disable-breakpad")
-        chrome_options.add_argument("--disable-client-side-phishing-detection")
-        chrome_options.add_argument("--disable-component-update")
-        chrome_options.add_argument("--disable-default-apps")
-        chrome_options.add_argument("--disable-domain-reliability")
-        chrome_options.add_argument("--disable-hang-monitor")
-        chrome_options.add_argument("--disable-ipc-flooding-protection")
-        chrome_options.add_argument("--disable-offer-store-unmasked-wallet-cards")
-        chrome_options.add_argument("--disable-popup-blocking")
-        chrome_options.add_argument("--disable-print-preview")
-        chrome_options.add_argument("--disable-prompt-on-repost")
-        chrome_options.add_argument("--disable-sync")
-        chrome_options.add_argument("--disable-web-security")
-        chrome_options.add_argument("--force-color-profile=srgb")
-        chrome_options.add_argument("--metrics-recording-only")
-        chrome_options.add_argument("--mute-audio")
-        chrome_options.add_argument("--no-first-run")
-        chrome_options.add_argument("--no-default-browser-check")
-        chrome_options.add_argument("--password-store=basic")
-        chrome_options.add_argument("--use-mock-keychain")
+       
         
         # Set the remote debugging port (unique for each process)
         # This helps prevent any port conflicts between browser instances

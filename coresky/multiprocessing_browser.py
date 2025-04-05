@@ -60,14 +60,21 @@ def initialize_browser(process_id):
             return None
             
         # Set up Chrome options
-        chrome_options = webdriver.ChromeOptions()
+        chrome_options = Options()
         
-        # Add the specific ChromeOptions settings requested (corrected method name)
+        # Add the specific ChromeOptions settings for Docker environment
         chrome_options.add_argument("--no-sandbox")
         chrome_options.add_argument("--headless")
         
         # Set small window size to reduce memory usage
         chrome_options.add_argument("--window-size=600,300")
+        
+        # Docker-specific options to prevent user-data-dir issues
+        chrome_options.add_argument("--disable-dev-shm-usage")
+        chrome_options.add_argument("--disable-gpu")
+        # Use tmp directory for data path instead of default user-data-dir
+        temp_data_path = f"/tmp/chrome_data_{process_id}_{unique_id}"
+        chrome_options.add_argument(f"--data-path={temp_data_path}")
         
         # Disable all browser features that might cause profile lock issues
         chrome_options.add_argument("--disable-background-networking")
@@ -77,7 +84,6 @@ def initialize_browser(process_id):
         chrome_options.add_argument("--disable-client-side-phishing-detection")
         chrome_options.add_argument("--disable-component-update")
         chrome_options.add_argument("--disable-default-apps")
-        chrome_options.add_argument("--disable-dev-shm-usage")
         chrome_options.add_argument("--disable-domain-reliability")
         chrome_options.add_argument("--disable-hang-monitor")
         chrome_options.add_argument("--disable-ipc-flooding-protection")
@@ -88,12 +94,10 @@ def initialize_browser(process_id):
         chrome_options.add_argument("--disable-sync")
         chrome_options.add_argument("--disable-web-security")
         chrome_options.add_argument("--force-color-profile=srgb")
-        # chrome_options.add_argument("--headless=new")
         chrome_options.add_argument("--metrics-recording-only")
         chrome_options.add_argument("--mute-audio")
         chrome_options.add_argument("--no-first-run")
         chrome_options.add_argument("--no-default-browser-check")
-        chrome_options.add_argument("--no-sandbox")
         chrome_options.add_argument("--password-store=basic")
         chrome_options.add_argument("--use-mock-keychain")
         
@@ -125,7 +129,8 @@ def initialize_browser(process_id):
         # Set implicit wait time
         driver.implicitly_wait(config.DEFAULT_IMPLICIT_WAIT)
         
-        # Store the log path with the driver so we can clean it up later
+        # Store the data path and log path for cleanup
+        driver.temp_data_path = temp_data_path
         driver.log_path = log_path
         
         # Close any extra tabs that might have opened with extensions
@@ -221,11 +226,13 @@ def run_browser_instance(process_id):
 
 def cleanup_browser(driver):
     """
-    Clean up browser and its log file
+    Clean up browser and its temporary directories
     """
     if not driver:
         return
-        
+    
+    # Get paths before quitting the driver
+    temp_data_path = getattr(driver, 'temp_data_path', None)
     log_path = getattr(driver, 'log_path', None)
     
     try:
@@ -244,12 +251,22 @@ def cleanup_browser(driver):
         except Exception as term_error:
             logger.error(f"Error terminating Chrome processes: {term_error}")
     
-    # Also clean up the log file if it exists
+    # Clean up temporary data path
+    if temp_data_path and os.path.exists(temp_data_path):
+        try:
+            import shutil
+            shutil.rmtree(temp_data_path, ignore_errors=True)
+            logger.info(f"Cleaned up temporary data path: {temp_data_path}")
+        except Exception as e:
+            logger.error(f"Error cleaning up temporary data path: {e}")
+    
+    # Clean up log file
     if log_path and os.path.exists(log_path):
         try:
             os.remove(log_path)
+            logger.info(f"Removed log file: {log_path}")
         except Exception as e:
-            logger.error(f"Error removing log file {log_path}: {e}")
+            logger.error(f"Error removing log file: {e}")
 
 def estimate_max_instances():
     """

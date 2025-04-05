@@ -403,7 +403,7 @@ def connect_metamask_to_coresky(driver, coresky_url):
         logger.info("Looking for Connect Wallet button")
         try:
             connect_button = WebDriverWait(driver, 10).until(
-                EC.element_to_be_clickable((By.XPATH, "/html[1]/body[1]/div[1]/div[1]/div[3]/div[1]/div[1]/span[1]"))
+                EC.element_to_be_clickable((By.CSS_SELECTOR, "div.head-connect:nth-child(1) > span:nth-child(2)"))
             )
             logger.info("Connect Wallet button found, clicking it")
             safe_click(driver, connect_button)
@@ -417,7 +417,7 @@ def connect_metamask_to_coresky(driver, coresky_url):
         try:
             # Use a more robust selector for the MetaMask option
             metamask_option = WebDriverWait(driver, 10).until(
-                EC.element_to_be_clickable((By.XPATH, "/html[1]/body[1]/div[1]/div[4]/div[1]/div[1]/div[1]/div[1]/div[1]/img[1]"))
+                EC.element_to_be_clickable((By.CSS_SELECTOR, "div.item:nth-child(1) > img:nth-child(1)"))
             )
             logger.info("MetaMask option found, clicking it")
             safe_click(driver, metamask_option)

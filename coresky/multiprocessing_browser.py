@@ -273,7 +273,7 @@ def estimate_max_instances():
         logger.info(f"System has {cpu_count} CPU threads")
         logger.info(f"Estimated maximum browser instances: {max_instances}")
         
-        return 50
+        return 30
     except Exception as e:
         logger.error(f"Error estimating max instances: {e}")
         return 4  # Safe default

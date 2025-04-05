@@ -263,7 +263,7 @@ def perform_all_available_tasks(driver):
     
     time.sleep(config.WAIT_SHORT)
     #click profile button and add network
-    approve_polygon_llamanodes_network(driver)
+    #approve_polygon_llamanodes_network(driver)
     time.sleep(config.WAIT_SHORT)
     # Then vote for meme project
     logger.info("Performing meme voting")

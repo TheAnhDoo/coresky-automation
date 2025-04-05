@@ -45,6 +45,14 @@ def initialize_browser(process_id):
     """
     logger.info(f"[Process {process_id}] Initializing Chrome browser")
     
+    # Generate a unique id for logging
+    import uuid
+    import random
+    import tempfile
+    
+    # Generate a truly unique identifier
+    unique_id = str(uuid.uuid4()) + "_" + str(random.randint(10000, 99999))
+    
     try:
         # Check if extensions exist
         if not os.path.exists(config.METAMASK_CRX_PATH):
@@ -54,38 +62,59 @@ def initialize_browser(process_id):
         # Set up Chrome options
         chrome_options = Options()
         
+        # Add the specific ChromeOptions settings for Docker environment
+
+        
         # Set small window size to reduce memory usage
         chrome_options.add_argument("--window-size=600,300")
-        chrome_options.add_argument("--disable-notifications")
         
-        # Add options to reduce memory usage and improve compatibility
-        chrome_options.add_argument("--disable-gpu")
+        # Docker-specific options to prevent user-data-dir issues
         chrome_options.add_argument("--disable-dev-shm-usage")
-
-        chrome_options.add_argument("--mute-audio")
+        chrome_options.add_argument("--disable-gpu")
         chrome_options.add_argument("--no-sandbox")
-        # chrome_options.add_argument("--headless")  # Use new headless mode
-
+        chrome_options.add_argument("--headless")
+        # Use tmp directory for data path instead of default user-data-dir
+        temp_data_path = f"/tmp/chrome_data_{process_id}_{unique_id}"
+        chrome_options.add_argument(f"--data-path={temp_data_path}")
         
-        # Add MetaMask extension
+        # Disable all browser features that might cause profile lock issues
+       
+        
+        # Set the remote debugging port (unique for each process)
+        # This helps prevent any port conflicts between browser instances
+        debug_port = 9222 + process_id
+        chrome_options.add_argument(f"--remote-debugging-port={debug_port}")
+        
+        # Add MetaMask extension after all other options
         chrome_options.add_extension(config.METAMASK_CRX_PATH)
         
-        # Set up Chrome service
+        # Set up Chrome service with different logging for each process
         if not os.path.exists(config.CHROMEDRIVER_PATH):
             logger.error(f"ChromeDriver not found: {config.CHROMEDRIVER_PATH}")
             return None
             
-        service = Service(executable_path=config.CHROMEDRIVER_PATH)
+        # Create a log path unique to this process
+        log_path = os.path.join(tempfile.gettempdir(), f"chromedriver_{process_id}_{unique_id}.log")
         
-        # Initialize the driver
+        service = Service(
+            executable_path=config.CHROMEDRIVER_PATH,
+            log_path=log_path,
+            service_args=["--verbose"]
+        )
+        
+        # Initialize the driver with increased start timeout
         driver = webdriver.Chrome(service=service, options=chrome_options)
         
         # Set implicit wait time
         driver.implicitly_wait(config.DEFAULT_IMPLICIT_WAIT)
         
+        # Store the data path and log path for cleanup
+        driver.temp_data_path = temp_data_path
+        driver.log_path = log_path
+        
         # Close any extra tabs that might have opened with extensions
         if len(driver.window_handles) > 1:
-            logger.info(f"Found {len(driver.window_handles)} tabs, closing extras")
+            logger.info(f"[Process {process_id}] Found {len(driver.window_handles)} tabs, closing extras")
             main_handle = driver.window_handles[0]
             for handle in driver.window_handles[1:]:
                 driver.switch_to.window(handle)
@@ -123,7 +152,7 @@ def run_browser_instance(process_id):
             metamask_setup_success = metamask.setup_metamask_wallet(driver)
             if not metamask_setup_success:
                 logger.error(f"[Process {process_id}] Failed to set up MetaMask wallet, restarting browser")
-                driver.quit()
+                cleanup_browser(driver)
                 driver = None
                 time.sleep(10)
                 continue
@@ -133,7 +162,7 @@ def run_browser_instance(process_id):
             connect_success = metamask.connect_metamask_to_coresky(driver, config.CORESKY_URL)
             if not connect_success:
                 logger.error(f"[Process {process_id}] Failed to connect MetaMask to Coresky, restarting browser")
-                driver.quit()
+                cleanup_browser(driver)
                 driver = None
                 time.sleep(10)
                 continue
@@ -148,7 +177,7 @@ def run_browser_instance(process_id):
             
             # Clean up and restart a new cycle
             logger.info(f"[Process {process_id}] Cycle completed, restarting browser for a new cycle")
-            driver.quit()
+            cleanup_browser(driver)
             driver = None
             time.sleep(10)  # Brief pause before starting a new cycle
             
@@ -156,7 +185,7 @@ def run_browser_instance(process_id):
             logger.error(f"[Process {process_id}] Error during automation cycle: {e}")
             if driver:
                 try:
-                    driver.quit()
+                    cleanup_browser(driver)
                 except:
                     pass
                 driver = None
@@ -169,10 +198,54 @@ def run_browser_instance(process_id):
     # Clean up
     if driver:
         try:
-            driver.quit()
+            cleanup_browser(driver)
         except:
             pass
     logger.info(f"[Process {process_id}] Process stopped")
+
+def cleanup_browser(driver):
+    """
+    Clean up browser and its temporary directories
+    """
+    if not driver:
+        return
+    
+    # Get paths before quitting the driver
+    temp_data_path = getattr(driver, 'temp_data_path', None)
+    log_path = getattr(driver, 'log_path', None)
+    
+    try:
+        driver.quit()
+        logger.info(f"Successfully quit driver")
+    except Exception as e:
+        logger.error(f"Error quitting driver: {e}")
+        # Try to force close Chrome processes if quitting normally failed
+        try:
+            import psutil
+            current_process = psutil.Process()
+            for child in current_process.children(recursive=True):
+                if "chrome" in child.name().lower():
+                    logger.info(f"Force terminating Chrome process: {child.pid}")
+                    child.terminate()
+        except Exception as term_error:
+            logger.error(f"Error terminating Chrome processes: {term_error}")
+    
+    # Clean up temporary data path
+    if temp_data_path and os.path.exists(temp_data_path):
+        try:
+            import shutil
+            shutil.rmtree(temp_data_path, ignore_errors=True)
+            logger.info(f"Cleaned up temporary data path: {temp_data_path}")
+        except Exception as e:
+            logger.error(f"Error cleaning up temporary data path: {e}")
+    
+    # Clean up log file
+    if log_path and os.path.exists(log_path):
+        try:
+            os.remove(log_path)
+            logger.info(f"Removed log file: {log_path}")
+        except Exception as e:
+            logger.error(f"Error removing log file: {e}")
 
 def estimate_max_instances():
     """
@@ -269,4 +342,4 @@ def main():
         logger.info("All processes stopped")
         
 if __name__ == "__main__":
-    main() 
+    main()

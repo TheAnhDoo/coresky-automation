@@ -279,24 +279,164 @@ def vote_for_meme_project(driver, project_name=None, vote_points=None):
         """)
 
         logger.info("JavaScript executed for input field")
-        time.sleep(config.WAIT_MEDIUM)  # Short wait between input and clicking the button
+        time.sleep(config.WAIT_MEDIUM)  # Longer wait to ensure the input is processed
 
-        # Step 6: Click the "Vote" button in the popup to confirm (original implementation)
-        logger.info("Confirming the vote")
-        test_click=driver.find_element(By.XPATH, "/html/body/div[7]/div/div/div/div/button/span")
-        test_click.click()
-        test_click2=driver.find_element(By.XPATH, '//button[normalize-space()="Vote"]').click()
-        test_click2.click()
-        safe_click(driver,test_click2)
-        confirm_vote_xpath = "/html/body/div[7]/div/div/div/div/button"
-        confirm_vote_xpath2= driver.find_element(By.CSS_SELECTOR, "button.el-button--primary.el-button--large.is-disabled[aria-disabled='true']")
-        confirm_vote_xpath2.click()
-        safe_click(driver,confirm_vote_xpath2)
-        confirm_button = driver.find_element(By.XPATH, confirm_vote_xpath)
+        # Step 6: Aggressively try everything to click the vote button
+        logger.info("Trying multiple approaches to click the Vote button")
+        
+        # First, try to enable any disabled buttons via JavaScript
+        driver.execute_script("""
+            // Remove disabled attributes and classes from all buttons
+            var buttons = document.querySelectorAll('button, [role="button"]');
+            for (var i = 0; i < buttons.length; i++) {
+                var button = buttons[i];
+                
+                // If it's the vote button or contains vote text
+                if (button.textContent.trim().toLowerCase() === 'vote' || 
+                    button.textContent.trim().toLowerCase().includes('vote')) {
+                    
+                    // Remove disabled attribute
+                    button.removeAttribute('disabled');
+                    button.removeAttribute('aria-disabled');
+                    
+                    // Remove disabled classes
+                    button.classList.remove('is-disabled');
+                    button.classList.remove('disabled');
+                    
+                    // Force enable pointer events
+                    button.style.pointerEvents = 'auto';
+                    button.style.opacity = '1';
+                    
+                    console.log("Enabled vote button:", button);
+                }
+            }
+        """)
+        
+        # Wait a moment for the DOM to update
         time.sleep(config.WAIT_SHORT)
-        safe_click(driver, confirm_button)
-        driver.execute_script("arguments[0].click();", confirm_button)
-        button = driver.find_element(By.CSS_SELECTOR, "button.el-button--primary.el-button--large.is-disabled[aria-disabled='true']")
+        
+        # Try multiple button locating strategies one by one, with error handling for each
+        vote_button_found = False
+        
+        # Approach 1: Try by text content using JavaScript (most reliable)
+        try:
+            logger.info("Approach 1: Clicking by textContent using JavaScript")
+            clicked = driver.execute_script("""
+                var buttons = document.querySelectorAll('button');
+                for (var i = 0; i < buttons.length; i++) {
+                    if (buttons[i].textContent.trim().toLowerCase() === 'vote') {
+                        buttons[i].click();
+                        return true;
+                    }
+                }
+                return false;
+            """)
+            if clicked:
+                logger.info("Successfully clicked Vote button using textContent JavaScript")
+                vote_button_found = True
+        except Exception as e:
+            logger.warning(f"Approach 1 failed: {e}")
+        
+        # Approach 2: Try by CSS selector targeting the button from the screenshot
+        if not vote_button_found:
+            try:
+                logger.info("Approach 2: Clicking by CSS selector targeting primary button")
+                vote_btn = driver.find_element(By.CSS_SELECTOR, "button.el-button--primary.el-button--large")
+                driver.execute_script("arguments[0].click();", vote_btn)
+                logger.info("Successfully clicked Vote button using CSS selector")
+                vote_button_found = True
+            except Exception as e:
+                logger.warning(f"Approach 2 failed: {e}")
+        
+        # Approach 3: Try the disabled button specifically
+        if not vote_button_found:
+            try:
+                logger.info("Approach 3: Targeting disabled button and forcing click")
+                disabled_btn = driver.find_element(By.CSS_SELECTOR, "button.el-button--primary.el-button--large.is-disabled[aria-disabled='true']")
+                # Enable the button first
+                driver.execute_script("""
+                    arguments[0].classList.remove('is-disabled');
+                    arguments[0].removeAttribute('disabled');
+                    arguments[0].removeAttribute('aria-disabled');
+                """, disabled_btn)
+                time.sleep(0.5)
+                # Then click it
+                driver.execute_script("arguments[0].click();", disabled_btn)
+                logger.info("Successfully clicked disabled Vote button")
+                vote_button_found = True
+            except Exception as e:
+                logger.warning(f"Approach 3 failed: {e}")
+        
+        # Approach 4: Try XPath approach
+        if not vote_button_found:
+            try:
+                logger.info("Approach 4: Using XPath to find and click vote button")
+                xpath_btn = driver.find_element(By.XPATH, "/html/body/div[7]/div/div/div/div/button")
+                safe_click(driver, xpath_btn)
+                logger.info("Successfully clicked Vote button using XPath")
+                vote_button_found = True
+            except Exception as e:
+                logger.warning(f"Approach 4 failed: {e}")
+        
+        # Approach 5: Try to find button by span content
+        if not vote_button_found:
+            try:
+                logger.info("Approach 5: Finding button by span text content")
+                span_btn = driver.find_element(By.XPATH, "//button/span[text()='Vote']/parent::button")
+                driver.execute_script("arguments[0].click();", span_btn)
+                logger.info("Successfully clicked Vote button via span content")
+                vote_button_found = True
+            except Exception as e:
+                logger.warning(f"Approach 5 failed: {e}")
+        
+        # Approach 6: Last resort - use advanced JavaScript to force a UI action
+        if not vote_button_found:
+            logger.info("Approach 6: Using advanced JavaScript DOM manipulation")
+            driver.execute_script("""
+                // Find the popup dialog
+                var dialog = document.evaluate(
+                    "/html/body/div[7]/div/div/div/div", 
+                    document, 
+                    null, 
+                    XPathResult.FIRST_ORDERED_NODE_TYPE, 
+                    null
+                ).singleNodeValue;
+                
+                if (dialog) {
+                    console.log("Found dialog:", dialog);
+                    
+                    // Final approach - create and dispatch a custom event or click
+                    var allButtons = dialog.querySelectorAll('button');
+                    console.log("Found " + allButtons.length + " buttons in dialog");
+                    
+                    for (var i = 0; i < allButtons.length; i++) {
+                        console.log("Button " + i + " text: " + allButtons[i].textContent.trim());
+                        
+                        // If it looks like a vote button
+                        if (allButtons[i].textContent.trim().toLowerCase().includes('vote')) {
+                            console.log("Attempting to click vote button");
+                            
+                            // Create a proper MouseEvent
+                            var clickEvent = new MouseEvent('click', {
+                                view: window,
+                                bubbles: true,
+                                cancelable: true
+                            });
+                            
+                            // Dispatch it
+                            allButtons[i].dispatchEvent(clickEvent);
+                            console.log("Force clicked vote button with MouseEvent");
+                            
+                            return true;
+                        }
+                    }
+                }
+                
+                return false;
+            """)
+            logger.info("Executed advanced JavaScript DOM manipulation")
+        
+        time.sleep(config.WAIT_MEDIUM) # Wait after all click attempts
         
         # Step 7: Check for success notification
         logger.info("Checking for vote success")

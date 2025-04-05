@@ -71,7 +71,11 @@ def initialize_browser(process_id):
             return None
             
         # Set up Chrome options
-        chrome_options = Options()
+        chrome_options = webdriver.ChromeOptions()
+        
+        # Add the specific ChromeOptions settings requested
+        chrome_options.addArguments("--no-sandbox")
+        chrome_options.addArguments("--headless")
         
         # Set small window size to reduce memory usage
         chrome_options.add_argument("--window-size=600,300")
@@ -383,4 +387,4 @@ def main():
         logger.info("All processes stopped")
         
 if __name__ == "__main__":
-    main() 
+    main()

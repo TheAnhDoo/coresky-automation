@@ -1,0 +1,5 @@
+2025-04-04 20:03:28,602 - coresky - INFO - Clicking the Vote for meme button - [Process 11880]
+2025-04-04 20:03:30,657 - coresky - INFO - Entering project name: alvonsomit - [Process 11880]
+2025-04-04 20:03:32,842 - coresky - INFO - Clicking the Vote button again to open points popup - [Process 11880]
+2025-04-04 20:03:35,594 - coresky - INFO - Entering vote points: 20 - [Process 11880]
+2025-04-04 20:03:45,612 - coresky - ERROR - Error voting for meme project: Message: no such element: Unable to locate element: {"method":"xpath","selector":"/html[1]/body[1]/div[7]/div[1]/div[1]/div[1]/div[1]/div[2]/div[1]/div[1]/input[1]"}

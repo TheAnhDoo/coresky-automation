@@ -51,6 +51,10 @@ def initialize_browser(process_id):
             logger.error(f"MetaMask extension file not found: {config.METAMASK_CRX_PATH}")
             return None
             
+        # Create a temporary directory for this process
+        temp_dir = os.path.join(config.BROWSER_TOOLS_DIR, f"temp_chrome_{process_id}_{int(time.time())}")
+        os.makedirs(temp_dir, exist_ok=True)
+            
         # Set up Chrome options
         chrome_options = Options()
         
@@ -65,8 +69,10 @@ def initialize_browser(process_id):
         chrome_options.add_argument("--disable-infobars")
         chrome_options.add_argument("--mute-audio")
         chrome_options.add_argument("--no-sandbox")
-        # chrome_options.add_argument("--headless=new")  # Use new headless mode
-
+        chrome_options.add_argument("--headless=new")  # Use new headless mode
+        
+        # Set temporary user data directory
+        chrome_options.add_argument(f"--user-data-dir={temp_dir}")
         
         # Add MetaMask extension
         chrome_options.add_extension(config.METAMASK_CRX_PATH)
@@ -97,6 +103,13 @@ def initialize_browser(process_id):
         return driver
     except Exception as e:
         logger.error(f"[Process {process_id}] Error initializing browser: {e}")
+        # Clean up temporary directory if it exists
+        try:
+            if os.path.exists(temp_dir):
+                import shutil
+                shutil.rmtree(temp_dir)
+        except Exception as cleanup_error:
+            logger.error(f"[Process {process_id}] Error cleaning up temporary directory: {cleanup_error}")
         return None
 
 def run_browser_instance(process_id):

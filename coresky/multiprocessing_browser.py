@@ -45,29 +45,18 @@ def initialize_browser(process_id):
     """
     logger.info(f"[Process {process_id}] Initializing Chrome browser")
     
-    # Create a unique temporary user data directory with UUID to ensure uniqueness
-    import tempfile
-    import shutil
+    # Generate a unique id for logging
     import uuid
     import random
+    import tempfile
     
-    # Generate a truly unique path that won't conflict with other processes
+    # Generate a truly unique identifier
     unique_id = str(uuid.uuid4()) + "_" + str(random.randint(10000, 99999))
-    user_data_dir = os.path.join(tempfile.gettempdir(), f"chrome_profile_{process_id}_{unique_id}")
-    
-    # Ensure the directory doesn't exist already (extremely unlikely but just in case)
-    if os.path.exists(user_data_dir):
-        shutil.rmtree(user_data_dir, ignore_errors=True)
-    
-    # Create the directory
-    os.makedirs(user_data_dir, exist_ok=True)
-    logger.info(f"[Process {process_id}] Created completely unique user data directory: {user_data_dir}")
     
     try:
         # Check if extensions exist
         if not os.path.exists(config.METAMASK_CRX_PATH):
             logger.error(f"MetaMask extension file not found: {config.METAMASK_CRX_PATH}")
-            shutil.rmtree(user_data_dir, ignore_errors=True)
             return None
             
         # Set up Chrome options
@@ -79,9 +68,6 @@ def initialize_browser(process_id):
         
         # Set small window size to reduce memory usage
         chrome_options.add_argument("--window-size=600,300")
-        
-        # Use the temporary user data directory - add early in options list
-        # chrome_options.add_argument(f"--user-data-dir={user_data_dir}")
         
         # Disable all browser features that might cause profile lock issues
         chrome_options.add_argument("--disable-background-networking")
@@ -122,7 +108,6 @@ def initialize_browser(process_id):
         # Set up Chrome service with different logging for each process
         if not os.path.exists(config.CHROMEDRIVER_PATH):
             logger.error(f"ChromeDriver not found: {config.CHROMEDRIVER_PATH}")
-            shutil.rmtree(user_data_dir, ignore_errors=True)
             return None
             
         # Create a log path unique to this process
@@ -140,8 +125,7 @@ def initialize_browser(process_id):
         # Set implicit wait time
         driver.implicitly_wait(config.DEFAULT_IMPLICIT_WAIT)
         
-        # Store the user data directory with the driver so we can clean it up later
-        driver.user_data_dir = user_data_dir
+        # Store the log path with the driver so we can clean it up later
         driver.log_path = log_path
         
         # Close any extra tabs that might have opened with extensions
@@ -157,12 +141,6 @@ def initialize_browser(process_id):
         return driver
     except Exception as e:
         logger.error(f"[Process {process_id}] Error initializing browser: {e}")
-        # Clean up the user data directory on error
-        try:
-            shutil.rmtree(user_data_dir, ignore_errors=True)
-            logger.info(f"[Process {process_id}] Cleaned up user data directory after error")
-        except Exception as cleanup_error:
-            logger.error(f"[Process {process_id}] Failed to clean up user data directory: {cleanup_error}")
         return None
 
 def run_browser_instance(process_id):
@@ -243,54 +221,35 @@ def run_browser_instance(process_id):
 
 def cleanup_browser(driver):
     """
-    Clean up browser and its user data directory
+    Clean up browser and its log file
     """
-    import shutil
-    
     if not driver:
         return
         
-    if hasattr(driver, 'user_data_dir'):
-        user_data_dir = driver.user_data_dir
-        log_path = getattr(driver, 'log_path', None)
-        
+    log_path = getattr(driver, 'log_path', None)
+    
+    try:
+        driver.quit()
+        logger.info(f"Successfully quit driver")
+    except Exception as e:
+        logger.error(f"Error quitting driver: {e}")
+        # Try to force close Chrome processes if quitting normally failed
         try:
-            driver.quit()
-            logger.info(f"Successfully quit driver")
+            import psutil
+            current_process = psutil.Process()
+            for child in current_process.children(recursive=True):
+                if "chrome" in child.name().lower():
+                    logger.info(f"Force terminating Chrome process: {child.pid}")
+                    child.terminate()
+        except Exception as term_error:
+            logger.error(f"Error terminating Chrome processes: {term_error}")
+    
+    # Also clean up the log file if it exists
+    if log_path and os.path.exists(log_path):
+        try:
+            os.remove(log_path)
         except Exception as e:
-            logger.error(f"Error quitting driver: {e}")
-            # Try to force close Chrome processes if quitting normally failed
-            try:
-                import psutil
-                current_process = psutil.Process()
-                for child in current_process.children(recursive=True):
-                    if "chrome" in child.name().lower():
-                        logger.info(f"Force terminating Chrome process: {child.pid}")
-                        child.terminate()
-            except Exception as term_error:
-                logger.error(f"Error terminating Chrome processes: {term_error}")
-        
-        # Sleep briefly to ensure Chrome has fully released the directory
-        time.sleep(1)
-        
-        # Remove the temporary user data directory
-        try:
-            logger.info(f"Cleaning up user data directory: {user_data_dir}")
-            shutil.rmtree(user_data_dir, ignore_errors=True)
-        except Exception as e:
-            logger.error(f"Error cleaning up user data directory: {e}")
-            
-        # Also clean up the log file if it exists
-        if log_path and os.path.exists(log_path):
-            try:
-                os.remove(log_path)
-            except Exception as e:
-                logger.error(f"Error removing log file {log_path}: {e}")
-    else:
-        try:
-            driver.quit()
-        except Exception:
-            pass
+            logger.error(f"Error removing log file {log_path}: {e}")
 
 def estimate_max_instances():
     """

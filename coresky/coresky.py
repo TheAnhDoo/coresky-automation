@@ -285,6 +285,8 @@ def vote_for_meme_project(driver, project_name=None, vote_points=None):
         logger.info("Confirming the vote")
         confirm_vote_xpath = "/html/body/div[7]/div/div/div/div/button"
         confirm_button = driver.find_element(By.XPATH, confirm_vote_xpath)
+        time.sleep(config.WAIT_SHORT)
+        safe_click(driver, confirm_button)
         driver.execute_script("arguments[0].click();", confirm_button)
         time.sleep(config.WAIT_SHORT)
         

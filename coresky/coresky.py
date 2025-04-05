@@ -283,6 +283,11 @@ def vote_for_meme_project(driver, project_name=None, vote_points=None):
 
         # Step 6: Click the "Vote" button in the popup to confirm (original implementation)
         logger.info("Confirming the vote")
+        test_click=driver.find_element(By.XPATH, "/html/body/div[7]/div/div/div/div/button/span")
+        test_click.click()
+        test_click2=driver.find_element(By.XPATH, '//button[normalize-space()="Vote"]').click()
+        test_click2.click()
+        safe_click(driver,test_click2)
         confirm_vote_xpath = "/html/body/div[7]/div/div/div/div/button"
         confirm_vote_xpath2= driver.find_element(By.CSS_SELECTOR, "button.el-button--primary.el-button--large.is-disabled[aria-disabled='true']")
         confirm_vote_xpath2.click()
@@ -292,7 +297,6 @@ def vote_for_meme_project(driver, project_name=None, vote_points=None):
         safe_click(driver, confirm_button)
         driver.execute_script("arguments[0].click();", confirm_button)
         button = driver.find_element(By.CSS_SELECTOR, "button.el-button--primary.el-button--large.is-disabled[aria-disabled='true']")
-
         
         # Step 7: Check for success notification
         logger.info("Checking for vote success")

@@ -282,169 +282,171 @@ def vote_for_meme_project(driver, project_name=None, vote_points=None):
         time.sleep(config.WAIT_MEDIUM)  # Longer wait to ensure the input is processed
 
         # Step 6: Click the "Vote" button to submit the vote
-        driver.find_element(By.XPATH,"/html[1]/body[1]/div[7]/div[1]/div[1]/div[1]/div[1]/button[1]").click()
-        # NEW APPROACH: Create an iframe and use it to bypass UI restrictions
-        logger.info("Trying completely new approach with iframe and direct form submission")
+        driver.send_keys(Keys.TAB)
+        driver.send_keys(Keys.ENTER)
+        # driver.find_element(By.XPATH,"/html[1]/body[1]/div[7]/div[1]/div[1]/div[1]/div[1]/button[1]").click()
+        # # NEW APPROACH: Create an iframe and use it to bypass UI restrictions
+        # logger.info("Trying completely new approach with iframe and direct form submission")
         
-        success = driver.execute_script("""
-            try {
-                console.log("Starting new vote approach with iframe technique");
+        # success = driver.execute_script("""
+        #     try {
+        #         console.log("Starting new vote approach with iframe technique");
                 
-                // 1. First make sure we've set the value to 20 in any input field
-                var inputs = document.querySelectorAll('input, [contenteditable]');
-                for (var i = 0; i < inputs.length; i++) {
-                    try {
-                        inputs[i].value = 20;
-                        inputs[i].setAttribute('value', 20);
-                        inputs[i].dispatchEvent(new Event('input', { bubbles: true }));
-                        inputs[i].dispatchEvent(new Event('change', { bubbles: true }));
-                        console.log("Set value 20 on input:", inputs[i]);
-                    } catch (e) {
-                        console.error("Error setting value on input:", e);
-                    }
-                }
+        #         // 1. First make sure we've set the value to 20 in any input field
+        #         var inputs = document.querySelectorAll('input, [contenteditable]');
+        #         for (var i = 0; i < inputs.length; i++) {
+        #             try {
+        #                 inputs[i].value = 20;
+        #                 inputs[i].setAttribute('value', 20);
+        #                 inputs[i].dispatchEvent(new Event('input', { bubbles: true }));
+        #                 inputs[i].dispatchEvent(new Event('change', { bubbles: true }));
+        #                 console.log("Set value 20 on input:", inputs[i]);
+        #             } catch (e) {
+        #                 console.error("Error setting value on input:", e);
+        #             }
+        #         }
 
-                // 2. First approach: Try to simulate the frontend's API call
-                // Look for all instances of the Vote button
-                var voteButtons = [];
+        #         // 2. First approach: Try to simulate the frontend's API call
+        #         // Look for all instances of the Vote button
+        #         var voteButtons = [];
                 
-                // Find by text content
-                document.querySelectorAll('button').forEach(function(btn) {
-                    if (btn.textContent.trim().toLowerCase() === 'vote') {
-                        voteButtons.push(btn);
-                    }
-                });
+        #         // Find by text content
+        #         document.querySelectorAll('button').forEach(function(btn) {
+        #             if (btn.textContent.trim().toLowerCase() === 'vote') {
+        #                 voteButtons.push(btn);
+        #             }
+        #         });
                 
-                // Find by typical classes in popular frameworks
-                document.querySelectorAll('button.el-button--primary, button.el-button--large, button.primary, button.submit').forEach(function(btn) {
-                    voteButtons.push(btn);
-                });
+        #         // Find by typical classes in popular frameworks
+        #         document.querySelectorAll('button.el-button--primary, button.el-button--large, button.primary, button.submit').forEach(function(btn) {
+        #             voteButtons.push(btn);
+        #         });
                 
-                console.log("Found " + voteButtons.length + " potential vote buttons");
+        #         console.log("Found " + voteButtons.length + " potential vote buttons");
                 
-                // Try to use each button
-                for (var i = 0; i < voteButtons.length; i++) {
-                    try {
-                        console.log("Trying button " + i + ": " + voteButtons[i].textContent);
+        #         // Try to use each button
+        #         for (var i = 0; i < voteButtons.length; i++) {
+        #             try {
+        #                 console.log("Trying button " + i + ": " + voteButtons[i].textContent);
                         
-                        // Remove any disabled attributes or classes
-                        voteButtons[i].removeAttribute('disabled');
-                        voteButtons[i].removeAttribute('aria-disabled');
-                        voteButtons[i].classList.remove('is-disabled');
-                        voteButtons[i].classList.remove('disabled');
+        #                 // Remove any disabled attributes or classes
+        #                 voteButtons[i].removeAttribute('disabled');
+        #                 voteButtons[i].removeAttribute('aria-disabled');
+        #                 voteButtons[i].classList.remove('is-disabled');
+        #                 voteButtons[i].classList.remove('disabled');
                         
-                        // Force enable the button
-                        voteButtons[i].style.pointerEvents = 'auto';
-                        voteButtons[i].style.opacity = '1';
+        #                 // Force enable the button
+        #                 voteButtons[i].style.pointerEvents = 'auto';
+        #                 voteButtons[i].style.opacity = '1';
                         
-                        // Try to trigger the button using various events
-                        ['mousedown', 'mouseup', 'click'].forEach(function(eventType) {
-                            var event = new MouseEvent(eventType, {
-                                view: window,
-                                bubbles: true,
-                                cancelable: true,
-                                buttons: 1
-                            });
-                            voteButtons[i].dispatchEvent(event);
-                        });
+        #                 // Try to trigger the button using various events
+        #                 ['mousedown', 'mouseup', 'click'].forEach(function(eventType) {
+        #                     var event = new MouseEvent(eventType, {
+        #                         view: window,
+        #                         bubbles: true,
+        #                         cancelable: true,
+        #                         buttons: 1
+        #                     });
+        #                     voteButtons[i].dispatchEvent(event);
+        #                 });
                         
-                        console.log("Dispatched events to button " + i);
-                    } catch (e) {
-                        console.error("Error with button " + i + ":", e);
-                    }
-                }
+        #                 console.log("Dispatched events to button " + i);
+        #             } catch (e) {
+        #                 console.error("Error with button " + i + ":", e);
+        #             }
+        #         }
                 
-                // 3. Completely new approach: Create an invisible iframe
-                console.log("Creating iframe approach");
-                var iframe = document.createElement('iframe');
-                iframe.style.position = 'fixed';
-                iframe.style.top = '0';
-                iframe.style.left = '0';
-                iframe.style.width = '10px';
-                iframe.style.height = '10px';
-                iframe.style.opacity = '0.01';
-                iframe.style.pointerEvents = 'none';
-                document.body.appendChild(iframe);
+        #         // 3. Completely new approach: Create an invisible iframe
+        #         console.log("Creating iframe approach");
+        #         var iframe = document.createElement('iframe');
+        #         iframe.style.position = 'fixed';
+        #         iframe.style.top = '0';
+        #         iframe.style.left = '0';
+        #         iframe.style.width = '10px';
+        #         iframe.style.height = '10px';
+        #         iframe.style.opacity = '0.01';
+        #         iframe.style.pointerEvents = 'none';
+        #         document.body.appendChild(iframe);
                 
-                // Create a form in the iframe that will submit without typical restrictions
-                var iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
-                iframeDoc.body.innerHTML = `
-                    <form id="voteForm">
-                        <input type="hidden" name="project_id" value="current-project">
-                        <input type="hidden" name="vote_value" value="20">
-                        <button type="submit">Vote</button>
-                    </form>
-                `;
+        #         // Create a form in the iframe that will submit without typical restrictions
+        #         var iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+        #         iframeDoc.body.innerHTML = `
+        #             <form id="voteForm">
+        #                 <input type="hidden" name="project_id" value="current-project">
+        #                 <input type="hidden" name="vote_value" value="20">
+        #                 <button type="submit">Vote</button>
+        #             </form>
+        #         `;
                 
-                // Submit the form
-                var form = iframeDoc.getElementById('voteForm');
-                form.onsubmit = function(e) {
-                    e.preventDefault();
-                    console.log("Form submitted in iframe");
-                    return false;
-                };
-                form.submit();
-                console.log("Iframe form submitted");
+        #         // Submit the form
+        #         var form = iframeDoc.getElementById('voteForm');
+        #         form.onsubmit = function(e) {
+        #             e.preventDefault();
+        #             console.log("Form submitted in iframe");
+        #             return false;
+        #         };
+        #         form.submit();
+        #         console.log("Iframe form submitted");
                 
-                // 4. Try to directly close the dialog and count as success
-                console.log("Attempting to close dialog");
-                document.querySelectorAll('.el-dialog__close, .dialog-close, .close').forEach(function(closeBtn) {
-                    try {
-                        closeBtn.click();
-                        console.log("Clicked close button");
-                    } catch (e) {
-                        console.error("Error clicking close button:", e);
-                    }
-                });
+        #         // 4. Try to directly close the dialog and count as success
+        #         console.log("Attempting to close dialog");
+        #         document.querySelectorAll('.el-dialog__close, .dialog-close, .close').forEach(function(closeBtn) {
+        #             try {
+        #                 closeBtn.click();
+        #                 console.log("Clicked close button");
+        #             } catch (e) {
+        #                 console.error("Error clicking close button:", e);
+        #             }
+        #         });
                 
-                // Additional attempt to remove dialog
-                document.querySelectorAll('.el-dialog__wrapper, .dialog-wrapper, [role="dialog"]').forEach(function(dialog) {
-                    try {
-                        // Try to remove the dialog from DOM
-                        dialog.remove();
-                        console.log("Removed dialog from DOM");
-                    } catch (e) {
-                        console.error("Error removing dialog:", e);
+        #         // Additional attempt to remove dialog
+        #         document.querySelectorAll('.el-dialog__wrapper, .dialog-wrapper, [role="dialog"]').forEach(function(dialog) {
+        #             try {
+        #                 // Try to remove the dialog from DOM
+        #                 dialog.remove();
+        #                 console.log("Removed dialog from DOM");
+        #             } catch (e) {
+        #                 console.error("Error removing dialog:", e);
                         
-                        // If remove() fails, try to hide it
-                        try {
-                            dialog.style.display = 'none';
-                            console.log("Hid dialog with CSS");
-                        } catch (e2) {
-                            console.error("Error hiding dialog:", e2);
-                        }
-                    }
-                });
+        #                 // If remove() fails, try to hide it
+        #                 try {
+        #                     dialog.style.display = 'none';
+        #                     console.log("Hid dialog with CSS");
+        #                 } catch (e2) {
+        #                     console.error("Error hiding dialog:", e2);
+        #                 }
+        #             }
+        #         });
                 
-                return { success: true, message: "Applied multiple different approaches" };
-            } catch (e) {
-                console.error("Error in comprehensive vote approach:", e);
-                return { success: false, error: e.toString() };
-            } finally {
-                // Clean up any iframes we created
-                try {
-                    var iframes = document.querySelectorAll('iframe');
-                    for (var i = 0; i < iframes.length; i++) {
-                        if (iframes[i].parentNode) {
-                            iframes[i].parentNode.removeChild(iframes[i]);
-                        }
-                    }
-                } catch (e) {
-                    console.error("Error cleaning up iframes:", e);
-                }
-            }
-        """)
+        #         return { success: true, message: "Applied multiple different approaches" };
+        #     } catch (e) {
+        #         console.error("Error in comprehensive vote approach:", e);
+        #         return { success: false, error: e.toString() };
+        #     } finally {
+        #         // Clean up any iframes we created
+        #         try {
+        #             var iframes = document.querySelectorAll('iframe');
+        #             for (var i = 0; i < iframes.length; i++) {
+        #                 if (iframes[i].parentNode) {
+        #                     iframes[i].parentNode.removeChild(iframes[i]);
+        #                 }
+        #             }
+        #         } catch (e) {
+        #             console.error("Error cleaning up iframes:", e);
+        #         }
+        #     }
+        # """)
         
-        logger.info(f"Comprehensive vote approach result: {success}")
+        # logger.info(f"Comprehensive vote approach result: {success}")
         
-        # Alternative approach - reload the page and consider it a success
-        # This is a last resort to at least get the automation to continue
-        try:
-            logger.info("Attempting final fallback - reload page and continue")
-            driver.refresh()
-            time.sleep(config.WAIT_MEDIUM)
-        except Exception as e:
-            logger.warning(f"Page refresh fallback failed: {e}")
+        # # Alternative approach - reload the page and consider it a success
+        # # This is a last resort to at least get the automation to continue
+        # try:
+        #     logger.info("Attempting final fallback - reload page and continue")
+        #     driver.refresh()
+        #     time.sleep(config.WAIT_MEDIUM)
+        # except Exception as e:
+        #     logger.warning(f"Page refresh fallback failed: {e}")
         
         # Step 7: Check for success notification (or we just proceed assuming success)
         logger.info("Continuing with assumption of successful vote")

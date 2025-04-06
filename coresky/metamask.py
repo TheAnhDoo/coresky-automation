@@ -394,16 +394,36 @@ def click_done_button(driver):
 # Function to connect MetaMask to Coresky
 def connect_metamask_to_coresky(driver, coresky_url):
     try:
+        # Store the original window handles before navigating to Coresky
+        original_handles = driver.window_handles
+        logger.info(f"Original window handles before navigation: {original_handles}")
+        main_handle = driver.current_window_handle
+        
         # Navigate to Coresky
         logger.info(f"Navigating to Coresky: {coresky_url}")
         driver.get(coresky_url)
         time.sleep(config.WAIT_MEDIUM)
+        
+        # Close all previous tabs except the current one with Coresky
+        new_handle = driver.current_window_handle
+        for handle in original_handles:
+            if handle != new_handle:
+                try:
+                    logger.info(f"Closing previous tab with handle: {handle}")
+                    driver.switch_to.window(handle)
+                    driver.close()
+                except Exception as e:
+                    logger.warning(f"Error closing tab {handle}: {e}")
+        
+        # Switch back to the Coresky tab
+        driver.switch_to.window(new_handle)
+        logger.info(f"Switched to Coresky tab with handle: {new_handle}")
 
         # Click the "Connect Wallet" button
         logger.info("Looking for Connect Wallet button")
         try:
             connect_button = WebDriverWait(driver, 10).until(
-                EC.element_to_be_clickable((By.CSS_SELECTOR, "div.head-connect:nth-child(1) > span:nth-child(2)"))
+                EC.element_to_be_clickable((By.CSS_SELECTOR, ".head-right div, .head-connect span, img.login-icon"))
             )
             logger.info("Connect Wallet button found, clicking it")
             safe_click(driver, connect_button)
@@ -426,15 +446,15 @@ def connect_metamask_to_coresky(driver, coresky_url):
             logger.warning(f"MetaMask option not found or not clickable: {e}")
             return False
 
-        # Store the original window handle
-        original_window = driver.current_window_handle
-        logger.info(f"Original window handle: {original_window}")
+        # Store the Coresky window handle
+        coresky_window = driver.current_window_handle
+        logger.info(f"Coresky window handle: {coresky_window}")
 
         # Switch to the MetaMask popup window
         logger.info("Looking for MetaMask popup window")
         metamask_popup = None
         for handle in driver.window_handles:
-            if handle != original_window:
+            if handle != coresky_window:
                 driver.switch_to.window(handle)
                 if "MetaMask" in driver.title:
                     metamask_popup = handle
@@ -443,7 +463,7 @@ def connect_metamask_to_coresky(driver, coresky_url):
 
         if not metamask_popup:
             logger.warning("MetaMask popup not found")
-            driver.switch_to.window(original_window)
+            driver.switch_to.window(coresky_window)
             return False
 
         # Approve the connection in the MetaMask popup
@@ -476,29 +496,73 @@ def connect_metamask_to_coresky(driver, coresky_url):
 
         # Handle the signing request (if a new popup appears for signing)
         logger.info("Looking for MetaMask signing popup")
-        for handle in driver.window_handles:
-            if handle != original_window and handle != metamask_popup:
-                driver.switch_to.window(handle)
-                if "MetaMask" in driver.title:
-                    logger.info(f"Found MetaMask signing popup: {driver.title}")
-                    driver.execute_script("""
-                        var buttons = document.querySelectorAll('button');
-                        for (var i = 0; i < buttons.length; i++) {
-                            var text = buttons[i].innerText.toLowerCase();
-                            if (text.includes('Confirm') || text.includes('confirm')) {
-                                buttons[i].click();
-                                break;
-                            }
-                        }
-                    """)
-                    time.sleep(config.WAIT_SHORT)
-                    time.sleep(5)
-                    break
-
+        
+        # Add a retry loop for signing attempts
+        max_sign_attempts = 3
+        sign_attempt = 0
+        signing_success = False
+        
+        while sign_attempt < max_sign_attempts and not signing_success:
+            sign_attempt += 1
+            logger.info(f"Signing attempt {sign_attempt}/{max_sign_attempts}")
+            
+            # Refresh the window handles list each time
+            time.sleep(2)  # Wait for potential new popups
+            all_handles = driver.window_handles
+            
+            # Try with the specific CSS selector
+            try:
+                logger.info("Trying CSS selector approach")
+                for handle in all_handles:
+                    if handle != coresky_window:
+                        driver.switch_to.window(handle)
+                        time.sleep(1)
+                        
+                        try:
+                            # Direct CSS selector approach
+                            css_selector = "#app-content > div > div > div > div > div.mm-box.multichain-page-footer.confirm-footer_page-footer.mm-box--padding-4.mm-box--display-flex.mm-box--gap-4.mm-box--flex-direction-column.mm-box--width-full > div > button.mm-box.mm-text.mm-button-base.mm-button-base--size-lg.mm-button-base--block.mm-button-primary.mm-text--body-md-medium.mm-box--padding-0.mm-box--padding-right-4.mm-box--padding-left-4.mm-box--display-inline-flex.mm-box--justify-content-center.mm-box--align-items-center.mm-box--color-primary-inverse.mm-box--background-color-primary-default.mm-box--rounded-pill"
+                            specific_button = driver.find_element(By.CSS_SELECTOR, css_selector)
+                            logger.info("Found button using CSS selector")
+                            specific_button.click()
+                            logger.info("Clicked specific CSS selector button")
+                            signing_success = True
+                            time.sleep(5)
+                            break
+                        except Exception as css_err:
+                            logger.warning(f"Error with CSS selector button: {css_err}")
+            except Exception as e:
+                logger.warning(f"Error in CSS selector approach: {e}")
+            
+            if not signing_success and sign_attempt < max_sign_attempts:
+                logger.info(f"Signing attempt {sign_attempt} failed, waiting before retry...")
+                time.sleep(3)  # Wait before next attempt
+        
+        if signing_success:
+            logger.info("Signing process completed successfully")
+        else:
+            logger.warning("Maximum signing attempts reached without confirmed success")
+        
+        # Add longer wait to ensure transaction completes
+        time.sleep(8)
+        
         # Switch back to the main Coresky window
         logger.info("Switching back to main Coresky window")
-        driver.switch_to.window(original_window)
-        time.sleep(config.WAIT_SHORT)
+        driver.switch_to.window(coresky_window)
+        time.sleep(config.WAIT_MEDIUM)
+        
+        # Close any remaining MetaMask popups
+        current_handles = driver.window_handles
+        for handle in current_handles:
+            if handle != coresky_window:
+                try:
+                    logger.info(f"Closing MetaMask popup with handle: {handle}")
+                    driver.switch_to.window(handle)
+                    driver.close()
+                except Exception as e:
+                    logger.warning(f"Error closing MetaMask popup {handle}: {e}")
+        
+        # Make sure we're on the Coresky window
+        driver.switch_to.window(coresky_window)
 
         logger.info("MetaMask connection and signing completed successfully")
         return True
@@ -506,7 +570,9 @@ def connect_metamask_to_coresky(driver, coresky_url):
     except Exception as e:
         logger.error(f"Error connecting MetaMask to Coresky: {e}")
         try:
-            driver.switch_to.window(original_window)
+            # Try to switch back to any remaining window
+            if len(driver.window_handles) > 0:
+                driver.switch_to.window(driver.window_handles[0])
         except:
             pass
         return False

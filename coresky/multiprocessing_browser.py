@@ -66,7 +66,7 @@ def initialize_browser(process_id):
 
         
         # Set small window size to reduce memory usage
-        chrome_options.add_argument("--window-size=600,300")
+        chrome_options.add_argument("--window-size=500,500")
         
         # Docker-specific options to prevent user-data-dir issues
         chrome_options.add_argument("--disable-dev-shm-usage")
@@ -273,7 +273,7 @@ def estimate_max_instances():
         logger.info(f"System has {cpu_count} CPU threads")
         logger.info(f"Estimated maximum browser instances: {max_instances}")
         
-        return 10
+        return max_instances
     except Exception as e:
         logger.error(f"Error estimating max instances: {e}")
         return 4  # Safe default

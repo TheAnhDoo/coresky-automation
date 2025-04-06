@@ -72,7 +72,7 @@ def initialize_browser(process_id):
         chrome_options.add_argument("--disable-dev-shm-usage")
         chrome_options.add_argument("--disable-gpu")
         chrome_options.add_argument("--no-sandbox")
-        # chrome_options.add_argument("--headless")
+        chrome_options.add_argument('--headless=new')
         # Use tmp directory for data path instead of default user-data-dir
         temp_data_path = f"/tmp/chrome_data_{process_id}_{unique_id}"
         chrome_options.add_argument(f"--data-path={temp_data_path}")
